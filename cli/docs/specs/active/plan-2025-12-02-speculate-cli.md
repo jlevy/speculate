@@ -255,7 +255,7 @@ def init(site_name: str = "My Site", base_dir: str = ".", force: bool = False) -
     Examples:
       myapp init
       myapp init --site-name "My Blog"
-      myapp init --force
+      myapp init --overwrite
     """
     # Implementation here
     rprint(f"[green]✔︎[/green] Initialized successfully")
@@ -482,49 +482,29 @@ when users run `speculate init`.
 ```yaml
 _min_copier_version: "9.4.0"
 
-# Exclude everything except docs/
-# This means only docs/ gets copied to user projects
+# Only copy docs/ directory - exclude everything else
 _exclude:
-  - copier.yml
-  - cli/ # The CLI package itself
-  - LICENSE
-  - .git/
-  - .github/
-  - .cursor/
-  - .speculate/ # Local settings created by speculate install
-  - __pycache__/
-  - "*.pyc"
-  - "*.lock"
+  - "*"
+  - ".*"
+  - "!docs/"
 
-# Project-specific files: create once, don't overwrite on update
-# These are user-customized files that should not be replaced
-_skip_if_exists:
-  - docs/development.md
-  - "docs/project/specs/active/*"
-  - "docs/project/specs/done/*"
-  - "docs/project/specs/future/*"
-  - "docs/project/specs/paused/*"
-  - "docs/project/architecture/current/*"
-  - "docs/project/architecture/archive/*"
-  - "docs/project/research/current/*"
-  - "docs/project/research/archive/*"
+# No _skip_if_exists needed:
+# - User-created files (specs, architecture docs) don't exist in the template
+# - Template files (template-*.md) should receive updates
+# - Copier's 3-way merge handles conflicts if users modify template files
 
 _message_after_copy: |
   Speculate docs installed!
-
   See docs/docs-overview.md for usage guide.
-
-  Next steps:
-    speculate install    # Configure Cursor/Claude Code/Codex
-    speculate status     # Check current version
-    speculate update     # Pull future updates
 ```
 
 Key points:
 
-- `_exclude` lists everything NOT to copy (cli/, LICENSE, etc.)
+- `_exclude` uses wildcards to exclude everything except `docs/`
 
-- `_skip_if_exists` protects user-created files during `speculate update`
+- No `_skip_if_exists` is needed because user-created files don’t exist in the template
+
+- Copier’s 3-way merge handles conflicts when users modify template files
 
 - Only `docs/` directory gets copied to user projects
 
@@ -607,7 +587,7 @@ def build_parser() -> argparse.ArgumentParser:
                 help="target directory (default: current directory)",
             )
             subparser.add_argument(
-                "--force",
+                "--overwrite",
                 action="store_true",
                 help="overwrite existing docs without confirmation",
             )
@@ -700,7 +680,7 @@ def init(destination: str = ".", force: bool = False) -> None:
     Examples:
       speculate init              # Initialize in current directory
       speculate init ./my-project # Initialize in specific directory
-      speculate init --force      # Overwrite without confirmation
+      speculate init --overwrite      # Overwrite without confirmation
     """
     import copier  # Lazy import - large package
 
@@ -1097,11 +1077,11 @@ is created.
 speculate init [destination]
     │
     ├─► Check if docs/ already exists
-    │       └─► If yes and not --force, confirm overwrite
+    │       └─► If yes and not --overwrite, confirm overwrite
     │
     ├─► Preview files to be created
     │
-    ├─► Confirm with user (unless --force)
+    ├─► Confirm with user (unless --overwrite)
     │
     ├─► copier.run_copy(TEMPLATE, destination)
     │

@@ -63,31 +63,28 @@ The implementation is broken into phases that may be committed and tested separa
   speculate = "speculate.cli.cli_main:main"
   ```
 
-- [ ] Create `copier.yml` at repo root:
+- [x] Create `copier.yml` at repo root:
 
   ```yaml
   _min_copier_version: "9.4.0"
-  
+
+  # Only copy docs/ directory using negation patterns (gitignore-style)
+  # First exclude everything, then whitelist only root-level docs/
+  # The leading / anchors the pattern to the template root
   _exclude:
-    - "*"
-    - ".*"
-    - "!docs/"
-  
-  _skip_if_exists:
-    - docs/development.md
-    - "docs/project/specs/active/*"
-    - "docs/project/specs/done/*"
-    - "docs/project/specs/future/*"
-    - "docs/project/specs/paused/*"
-    - "docs/project/architecture/current/*"
-    - "docs/project/architecture/archive/*"
-    - "docs/project/research/current/*"
-    - "docs/project/research/archive/*"
-  
+    - "**"
+    - "!/docs"
+    - "!/docs/**"
+
   _message_after_copy: |
     Speculate docs installed!
     See docs/docs-overview.md for usage guide.
   ```
+
+  **Note:** The original planned patterns (`"*"`, `".*"`, `"!docs/"`) did not work
+  correctly with copier/pathspec. The working solution uses gitignore-style negation
+  patterns with leading `/` to anchor to the template root, preventing `cli/docs/`
+  from being inadvertently included.
 
 ### Automated Testing Strategy
 
@@ -129,13 +126,13 @@ The implementation is broken into phases that may be committed and tested separa
 
 ### Tasks
 
-- [ ] Create `cli/src/speculate/cli/` directory
+- [x] Create `cli/src/speculate/cli/` directory
 
-- [ ] Create `cli/src/speculate/cli/__init__.py` (empty file)
+- [x] Create `cli/src/speculate/cli/__init__.py` (empty file)
 
-- [ ] Create `cli/src/speculate/cli/cli_main.py` with full implementation from plan spec
+- [x] Create `cli/src/speculate/cli/cli_main.py` with full implementation from plan spec
 
-- [ ] Create `cli/src/speculate/cli/cli_commands.py` with stub functions:
+- [x] Create `cli/src/speculate/cli/cli_commands.py` with full implementations:
 
   ```python
   from __future__ import annotations
@@ -162,11 +159,11 @@ The implementation is broken into phases that may be committed and tested separa
       rprint("[yellow]Not implemented yet[/yellow]")
   ```
 
-- [ ] Remove legacy `cli/src/speculate/speculate.py` and update `__init__.py`
+- [x] Remove legacy `cli/src/speculate/speculate.py` and update `__init__.py`
 
-- [ ] Test `cd cli && uv run speculate --help` works
+- [x] Test `cd cli && uv run speculate --help` works
 
-- [ ] Test `cd cli && uv run speculate --version` works
+- [x] Test `cd cli && uv run speculate --version` works
 
 ### Automated Testing Strategy
 
@@ -200,7 +197,7 @@ None.
 
 ### Tasks
 
-- [ ] Implement `init` command:
+- [x] Implement `init` command:
 
   - Support `--template` argument (default: “gh:jlevy/speculate”)
 
@@ -213,7 +210,7 @@ None.
 
   - Show instructions about customizing `docs/development.md`
 
-- [ ] Implement `update` command:
+- [x] Implement `update` command:
 
   - Check `.copier-answers.yml` exists
 
@@ -221,7 +218,7 @@ None.
 
   - Automatically call `install()` after update
 
-- [ ] Implement `install` command:
+- [x] Implement `install` command:
 
   - Create/update `.speculate/settings.yml` with:
 
@@ -246,7 +243,7 @@ None.
 
   - Create `.cursor/rules/` symlinks with `.mdc` extension pointing to `.md` files
 
-- [ ] Implement `status` command:
+- [x] Implement `status` command:
 
   - Check `.speculate/settings.yml` and display last_update, last_cli_version
 
@@ -256,7 +253,7 @@ None.
 
   - Exit with code 1 if development.md missing
 
-- [ ] Implement helper functions:
+- [x] Implement helper functions:
 
   - `_update_speculate_settings(project_root)` — Create/update `.speculate/settings.yml`
 
@@ -311,31 +308,32 @@ No new libraries beyond Phase 1.
 
 ### Tasks
 
-- [ ] Test `speculate init` in a fresh empty directory
+- [x] Test `speculate init` in a fresh empty directory
 
-- [ ] Test `speculate init --template .` using the local repo as template
+- [x] Test `speculate init --template .` using the local repo as template
 
-- [ ] Test `speculate init` in a directory with existing docs/
+- [x] Test `speculate init` in a directory with existing docs/
 
-- [ ] Test `speculate update` after making upstream changes
+- [ ] Test `speculate update` after making upstream changes (requires published
+  template)
 
-- [ ] Test `speculate install` creates correct symlinks
+- [x] Test `speculate install` creates correct symlinks
 
-- [ ] Test `speculate status` shows accurate information
+- [x] Test `speculate status` shows accurate information
 
-- [ ] Run `make lint` and fix any issues
+- [x] Run `make lint` and fix any issues
 
-- [ ] Run `make test` and ensure tests pass
+- [x] Run `make test` and ensure tests pass (41 tests passing)
 
-- [ ] Verify all `--help` messages are clear
+- [x] Verify all `--help` messages are clear
 
 ### Automated Testing Strategy
 
-- Full integration test in temp directory
+- [x] Full integration test in temp directory (test_integration.py)
 
-- Verify symlinks work correctly
+- [x] Verify symlinks work correctly
 
-- Test error cases (missing .copier-answers.yml, missing docs/)
+- [x] Test error cases (missing .copier-answers.yml, missing docs/)
 
 ### Libraries Used
 

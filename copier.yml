@@ -1,0 +1,13 @@
+_min_copier_version: "9.4.0"
+
+# Only copy docs/ directory using negation patterns (gitignore-style)
+# First exclude everything, then whitelist only root-level docs/
+# The leading / anchors the pattern to the template root
+_exclude:
+  - "**"
+  - "!/docs"
+  - "!/docs/**"
+
+_message_after_copy: |
+  Speculate docs installed!
+  See docs/docs-overview.md for usage guide.
