@@ -7,7 +7,7 @@ Repository = "https://github.com/jlevy/speculate"
 
 [project]
 name = "speculate"
-description = "Structured agent specs, shortcuts, and doc workflows"
+description = "Install and sync agent documentation for Cursor, Claude Code, Codex"
 authors = [
     { name="Joshua Levy", email="joshua@cal.berkeley.edu" },
 ]
@@ -38,6 +38,10 @@ classifiers = [
 # ---- Main dependencies ----
 
 dependencies = [
+    "copier>=9.4.0",
+    "clideps>=0.1.8",
+    "rich>=14.0.0",
+    "pyyaml>=6.0",
 ]
 
 
@@ -55,8 +59,7 @@ dev = [
 ]
 
 [project.scripts]
-# Add script entry points here:
-speculate = "speculate:main"
+speculate = "speculate.cli.cli_main:main"
 
 
 # ---- Build system ----

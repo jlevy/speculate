@@ -14,6 +14,11 @@ on:
 permissions:
   contents: read
 
+# The Python CLI is in cli/ subdirectory
+defaults:
+  run:
+    working-directory: cli
+
 jobs:
   build:
     strategy:
