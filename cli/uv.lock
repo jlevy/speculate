@@ -792,8 +792,10 @@ source = { editable = "." }
 dependencies = [
     { name = "clideps" },
     { name = "copier" },
+    { name = "prettyfmt" },
     { name = "pyyaml" },
     { name = "rich" },
+    { name = "strif" },
 ]
 
 [package.dev-dependencies]
@@ -811,8 +813,10 @@ dev = [
 requires-dist = [
     { name = "clideps", specifier = ">=0.1.8" },
     { name = "copier", specifier = ">=9.4.0" },
+    { name = "prettyfmt", specifier = ">=0.4.1" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rich", specifier = ">=14.0.0" },
+    { name = "strif", specifier = ">=3.0.1" },
 ]
 
 [package.metadata.requires-dev]
