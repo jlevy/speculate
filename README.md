@@ -25,7 +25,7 @@ engineering that won’t fall apart as a codebase grows in complexity.
    Use [uv](https://docs.astral.sh/uv/):
 
    ```bash
-   uv tool install speculate-cli
+   uv tool install --upgrade speculate-cli
    ```
 
 2. **Initialize Speculate in your repo:**
@@ -54,7 +54,11 @@ engineering that won’t fall apart as a codebase grows in complexity.
    `shortcut:new-implementation-spec.md` to design the implementation, then
    `@shortcut:implement-spec.md` to implement, `@shortcut:commit-code.md` to commit.
 
-## Background: Does Agent Coding Really Scale?
+See the [extended example](how-it-works-a-detailed-example) for more details.
+
+## Thoughts on Spec-Driven Agent Coding
+
+### Can Agents Write Most of the Code?
 
 I’ve read and written a lot of code over the past 20 years, mostly in startups.
 Over the past couple years I’ve been heavily using LLMs for coding.
@@ -64,14 +68,23 @@ myself, then LLMs to edit and debug, touching the code at almost every stage.
 However, then I began working with a friend on a new but complex full-stack product.
 We had a lot to build, so we began to experiment with using Claude Code and Cursor
 agents aggressively to write more and more of the code.
+A greenfield project with a modern framework (this is a full-stack agent framework and
+web UI in TypeScript with a [Convex](https://github.com/get-convex) backend) and only 2
+(human) developers was a good test.
 
 At first, unsurprisingly, as the codebase grew, we saw lots of slop code and painfully
-stupid bugs. This really isn’t surprising: the training data for LLMs includes mostly
-mediocre code. Even worse, just like with human engineers, if you let an agent ship poor
-code, that one bad bit of code encourages the next agent to repeat the problem.
+stupid bugs. This really isn’t surprising: by now we all realize the training data for
+LLMs includes mostly mediocre code.
+Even worse, just like with human engineers, if you let an agent ship poor code, that one
+bad bit of code encourages the next agent to repeat the problem.
+Even the best agents using modern models like Claude Sonnet 4.5 and GPT-5 Codex High
+make *really* stupid (and worse, subtle) errors.
+
+### Common Agent Problems
 
 Without good examples and careful prompting, even the best agents perpetuate terrible
 patterns and rapidly proliferate unnecessary complexity.
+
 For example, agents will routinely
 
 - Make a conspicuously poor decision (like parsing YAML with regular expressions) then
@@ -115,7 +128,9 @@ For example, agents will routinely
 - Re-invent the same Tailwind UI patterns and stylings over and over with random and
   subtle variations
 
-But we used all these problems as a chance to get more disciplined and improve
+### Enforcing Process and Quality
+
+We used all these problems as a chance to get more disciplined and improve
 processes—much like you would with a human engineering team.
 
 The first area of improvement was **more rigorous development processes**. We moved most
@@ -124,25 +139,44 @@ We broke specs into planning, implementation, and validation stages for more pre
 We enforced strict coding rules at commit time to reduce common bugs we saw agents
 introduce.
 
+Then you can layer this with shortcuts: small docs that outline a process.
+It’s then quick to reference shortcuts.
+
 And we added tests. Lots and lots of tests: unit tests, integration tests, golden tests,
 and end-to-end tests.
 
 The second way was **more flexible context engineering**. In practice, this really means
-lots of docs organized by workflow purpose.
+lots of docs organized by the purpose or workflow.
 You have longer-lived research docs with background, architecture docs summarizing the
-system, several kinds of specs for planning, implementation, and validation, and
-shortcut docs that define process.
+system, and shortcuts with defined processes.
+And then you use these to write shorter-lived specs for planning, implementation, and
+validation.
 
-The workflows are fairly complex.
-But it’s exactly these rules and processes that give significant improvements in both
-speed and code quality.
-The codebase grew quickly, but the more good structure we added, the more maintainable
-it became.
+The workflows are a bit complex.
+But *agents have much higher tolerance for process rules than human engineers*. They are
+so cheap, process is worth it!
+
+It’s exactly these rules and processes that give significant improvements in both speed
+and code quality. The codebase grew quickly, but the more good structure we added, the
+more maintainable it became.
+
+### What Worked
 
 After about a month of this, we didn’t wince when looking at agent code anymore.
 Refactors were also easier because we had good architecture docs.
+
 In about two months, we shipped about 250K lines of full-stack TypeScript code (with
 Convex as a backend) and about 250K lines of Markdown docs.
+Over 95% of the actual code was agent written, but with varying amounts of iterative
+human feedback. About 90% of specs, architecture docs, and research briefs were agent
+written but with much more human feedback and often requests for very specific changes
+or deleting whole chunks spec that were poorly conceived by an agent.
+But only about 10% of agent rules are edited by agents.
+
+However only about 10% of our agent rules are hand written.
+It’s critical that general rules be carefully considered.
+For example, optional arguments in TypeScript were so error prone for agent refactors,
+we actually just ban the agent from using it and insist on explicit nullable arguments.
 
 For truly algorithmic problems, architecture and infrastructure design, and machine
 learning engineering, it seems like deeper human involvement is still essential.
@@ -161,7 +195,7 @@ helpful for certain kinds of development.
 It likely works best for very small teams of senior engineers working on feature-rich
 products. But parts of this process can likely be adapted to other situations too.
 
-## Advantages of Spec-Driven Coding
+### Advantages of Spec-Driven Coding
 
 It’s worth talking a little why specs are so important for agents.
 With a good enough model and agent, shouldn’t it be able to just write the code based on
@@ -199,6 +233,44 @@ Specs have key advantages because they:
   And it is key to avoiding many of the problems where agents re-invent the wheel
   repeatedly because they are unaware of better approaches.
 
+### More Take-Aways
+
+A few more thoughts on all this:
+
+1. Agent coding is changing ridiculously quickly and it has improved a lot just since
+   mid-2025. But none of this is foolproof.
+   The agent can write
+
+2. Spec-driven development like this is powerful but most effective if you’re a fairly
+   senior engineer already and can aggressively correct the agent during spec writing
+   and when reviewing code.
+
+3. It is also most effective for full-stack or product engineering, where the main
+   challenge is implementing everything in a flexible way.
+   Visually intensive frontend engineering and “harder” algorithmic, infrastructure, or
+   machine learning engineering still seem better suited to iteratively writing code by
+   hand.
+
+4. Even if you are writing code by hand, the processes for writing research briefs and
+   architecture docs is still useful.
+   Agents are great at maintaining docs!
+
+5. For product engineering, you can often get away with writing very little code
+   manually if the spec docs are reviewed.
+   With good templates and examples, you can chat with the agent to write the specs as
+   well. But you do have to actually read the spec docs and review the code!
+
+6. But with some discipline this approach is really powerful.
+   Contrary to what some say, we have found it doesn’t lead to buggy, dangerous, and
+   unmaintainable code the way blindly vibe coding does.
+   And it is much faster than writing the same code fully by hand.
+
+7. Avoid testing cycles that are manual!
+   It’s best to combine this approach with an architecture that makes testing really
+   easy. If at all possible, insist on architectures where all tasks are easy to run from
+   the command line. Insist on mockable APIs and databases, so even integration testing
+   is easy from the command line.
+
 ## About Organizing Specs and Docs
 
 This repo is largely just a bunch of Markdown docs in a clean organized structure.
@@ -219,7 +291,7 @@ The key insights for this approach are:
 - Distinguish between *general* docs and *project-specific* docs, so that you can reuse
   docs across repositories and projects
 
-- Also organize docs into types *by lifecycle*: Most specs are short-lived only during
+- Organize docs into types *by lifecycle*: Most specs are short-lived only during
   implementation, but they reference longer-lived research or architecture docs
 
 - Breakdown specs for planning features, fixes, tasks, or refactors into subtypes: *plan
@@ -245,14 +317,15 @@ The key insights for this approach are:
 
 ### Key Docs
 
-- **`docs/docs-overview.md`** is a high-level roadmap of every rule, shortcut, and spec.
+- **[`docs/docs-overview.md`](docs/docs-overview.md)** is a high-level roadmap of every
+  rule, shortcut, and spec.
   The general agent rules should always point to this first.
 
 - **`docs/development.md`** is your concise project-specific setup.
   It should cover your key developer workflows to format, lint, test, and release.
-  A sample (`docs/development.npm.sample.md`) ships in the repo; copy or rewrite it as
-  `docs/development.md` and keep it current so agents know how to build and validate the
-  project.
+  A sample ([`docs/development.npm.sample.md`](docs/development.npm.sample.md)) ships in
+  the repo; copy or rewrite it as `docs/development.md` and keep it current so agents
+  know how to build and validate the project.
 
 ### Folder Structure
 
@@ -535,74 +608,40 @@ But it is also quite powerful.
 By now I hope you see how all these docs work together in a structure to make agent
 coding quite fast *and* the quality of code higher.
 
-## More Take-Aways
-
-After using this structure heavily for the past 2-3 months as well as using coding tools
-in other ways for the past 2 years, we do have some take-aways:
-
-1. Agent coding is changing ridiculously quickly and it has improved a lot just since
-   mid-2025. But none of this is foolproof.
-   Even the best agents like Claude Sonnet 4.5 and GPT-5 Codex High make really stupid
-   errors sometimes.
-
-2. Spec-driven development like this is most effective if you’re a fairly senior
-   engineer already and can aggressively correct the agent during spec writing and when
-   reviewing code.
-
-3. It is also most effective for full-stack or product engineering, where the main
-   challenge is implementing everything in a flexible way.
-   Visually intensive frontend engineering and “harder” algorithmic, infrastructure, or
-   machine learning engineering still seem better suited to iteratively writing code by
-   hand.
-
-4. Even if you are writing code by hand, the processes for writing research briefs and
-   architecture docs is still useful.
-   Agents are great at maintaining docs!
-
-5. For product engineering, you can often get away with writing very little code
-   manually if the spec docs are reviewed.
-   With good templates and examples, you can chat with the agent to write the specs as
-   well. But you do have to actually read the spec docs and review the code!
-
-6. But with some discipline this approach is really powerful.
-   Contrary to what some say, we have found it doesn’t lead to buggy, dangerous, and
-   unmaintainable code the way blindly vibe coding does.
-   And it is much faster than writing the same code fully by hand.
-
-7. Avoid testing cycles that are manual!
-   It’s best to combine this approach with an architecture that makes testing really
-   easy. If at all possible, insist on architectures where all tasks are easy to run from
-   the command line. Insist on mockable APIs and databases, so even integration testing
-   is easy from the command line.
-
 ## Installing to Claude Code, Codex, and Cursor
 
-The source of truth for all rules is `docs/general/agent-rules/`. After running
-`speculate init`, configure your agent tool to load these rules.
+The `speculate init` command automatically configures all three tools:
 
-### Cursor Setup
+- **CLAUDE.md** — Adds a header pointing to the docs (preserves any existing content)
 
-Create symlinks (or copies) from `.cursor/rules/` to the agent-rules docs:
+- **AGENTS.md** — Same header for Codex compatibility
 
-```bash
-mkdir -p .cursor/rules
-cd .cursor/rules
-ln -s ../../docs/general/agent-rules/*.md .
-```
+- **.cursor/rules/** — Creates symlinks to `docs/general/agent-rules/*.md`
 
-### Claude Code and Codex Setup
+This setup is idempotent—running `init` or `install` multiple times is safe and won’t
+overwrite your customizations to CLAUDE.md or AGENTS.md.
 
-Create root-level `CLAUDE.md` and/or `AGENTS.md` files that reference the docs.
-Example `CLAUDE.md`:
+The source of truth for all rules is
+[`docs/general/agent-rules/`](docs/general/agent-rules/).
+
+### Manual Setup (optional)
+
+If you prefer to configure manually instead of using `speculate init`, create
+`CLAUDE.md` and/or `AGENTS.md` referencing the docs:
 
 ```markdown
 Read @docs/docs-overview.md first for project documentation.
 Follow rules in @docs/general/agent-rules/.
 ```
 
+For Cursor, run `speculate install` to create the `.cursor/rules/` symlinks (Cursor
+requires `.mdc` extension which the CLI handles automatically).
+
 ### Automatic Workflow Activation
 
-The `@automatic-shortcut-triggers.md` rule enables automatic shortcut triggering.
+The
+[`automatic-shortcut-triggers.md`](docs/general/agent-rules/automatic-shortcut-triggers.md)
+rule enables automatic shortcut triggering.
 When an agent receives a request, it checks the trigger table and uses the appropriate
 shortcut from `docs/general/agent-shortcuts/`.
 
