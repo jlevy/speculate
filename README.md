@@ -54,7 +54,9 @@ engineering that won’t fall apart as a codebase grows in complexity.
    `shortcut:new-implementation-spec.md` to design the implementation, then
    `@shortcut:implement-spec.md` to implement, `@shortcut:commit-code.md` to commit.
 
-## Background: Does Agent Coding Really Scale?
+## Background
+
+### Can Agents Write Most of the Code?
 
 I’ve read and written a lot of code over the past 20 years, mostly in startups.
 Over the past couple years I’ve been heavily using LLMs for coding.
@@ -69,6 +71,8 @@ At first, unsurprisingly, as the codebase grew, we saw lots of slop code and pai
 stupid bugs. This really isn’t surprising: the training data for LLMs includes mostly
 mediocre code. Even worse, just like with human engineers, if you let an agent ship poor
 code, that one bad bit of code encourages the next agent to repeat the problem.
+
+### Common Agent Problems
 
 Without good examples and careful prompting, even the best agents perpetuate terrible
 patterns and rapidly proliferate unnecessary complexity.
@@ -115,6 +119,8 @@ For example, agents will routinely
 - Re-invent the same Tailwind UI patterns and stylings over and over with random and
   subtle variations
 
+### Enforcing Process and Quality
+
 But we used all these problems as a chance to get more disciplined and improve
 processes—much like you would with a human engineering team.
 
@@ -138,6 +144,8 @@ But it’s exactly these rules and processes that give significant improvements 
 speed and code quality.
 The codebase grew quickly, but the more good structure we added, the more maintainable
 it became.
+
+### What Worked
 
 After about a month of this, we didn’t wince when looking at agent code anymore.
 Refactors were also easier because we had good architecture docs.
@@ -219,7 +227,7 @@ The key insights for this approach are:
 - Distinguish between *general* docs and *project-specific* docs, so that you can reuse
   docs across repositories and projects
 
-- Also organize docs into types *by lifecycle*: Most specs are short-lived only during
+- Organize docs into types *by lifecycle*: Most specs are short-lived only during
   implementation, but they reference longer-lived research or architecture docs
 
 - Breakdown specs for planning features, fixes, tasks, or refactors into subtypes: *plan
@@ -245,14 +253,15 @@ The key insights for this approach are:
 
 ### Key Docs
 
-- **`docs/docs-overview.md`** is a high-level roadmap of every rule, shortcut, and spec.
+- **[`docs/docs-overview.md`](docs/docs-overview.md)** is a high-level roadmap of every
+  rule, shortcut, and spec.
   The general agent rules should always point to this first.
 
 - **`docs/development.md`** is your concise project-specific setup.
   It should cover your key developer workflows to format, lint, test, and release.
-  A sample (`docs/development.npm.sample.md`) ships in the repo; copy or rewrite it as
-  `docs/development.md` and keep it current so agents know how to build and validate the
-  project.
+  A sample ([`docs/development.npm.sample.md`](docs/development.npm.sample.md)) ships in
+  the repo; copy or rewrite it as `docs/development.md` and keep it current so agents
+  know how to build and validate the project.
 
 ### Folder Structure
 
@@ -602,7 +611,9 @@ Follow rules in @docs/general/agent-rules/.
 
 ### Automatic Workflow Activation
 
-The `@automatic-shortcut-triggers.md` rule enables automatic shortcut triggering.
+The
+[`automatic-shortcut-triggers.md`](docs/general/agent-rules/automatic-shortcut-triggers.md)
+rule enables automatic shortcut triggering.
 When an agent receives a request, it checks the trigger table and uses the appropriate
 shortcut from `docs/general/agent-shortcuts/`.
 
