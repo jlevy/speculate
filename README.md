@@ -4,13 +4,31 @@ The **Speculate project stucture** is a set of **rules, templates, and shortcut
 prompts** for agent-based coding using specifications and other agent coding best
 practices.
 
-It also includes a **CLI tool** (runnable as `uvx speculate`) for installing and
-updating these Markdown docs within your own repo, in a way that lets you customize
-things as you wish but still have the option to update rules that are improved in the
-future.
+It also includes a **CLI tool** for installing and updating these Markdown docs within
+your own repo, in a way that lets you customize things as you wish but still have the
+option to update rules that are improved in the future.
 
 I’ve grown to use this process heavily for some recent projects so have pulled this into
 an open source repository.
+
+## Installing the CLI
+
+The `speculate` CLI is published on PyPI as
+[speculate-cli](https://pypi.org/project/speculate-cli/).
+
+```bash
+# Run directly without installing (recommended for one-time use)
+uvx speculate-cli --help
+
+# Or install as a tool for repeated use
+uv tool install speculate-cli
+
+# Then run as:
+speculate --help
+```
+
+If you don’t use [uv](https://docs.astral.sh/uv/), you can also install with pip as
+`speculate-cli`.
 
 It is more complex with far more rules than some workflows I’ve seen, but over the past
 couple months using it, it seems to give very good results consistency and high code
