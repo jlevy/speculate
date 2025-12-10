@@ -42,7 +42,7 @@ HTML_TEMPLATE = """\
       --line-height: 1.2;
       --spacing-slide: 1em 4em 1em 3em;
       --spacing-heading: 0.5em;
-      --spacing-list-item: 0.3em;
+      --spacing-list-item: 0.5em;
       --color-code-bg: #f4f4f4;
       --border-radius: 3px;
     }}

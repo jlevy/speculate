@@ -4,7 +4,7 @@
 
 Joshua Levy
 
-December 9, 2025
+December 10, 2025
 
 * * *
 
@@ -218,6 +218,8 @@ class: small, two-column
 
 ## Why Specs?: Specs Enforce Thinking Process
 
+- Catches mistaken assumptions before they’re baked into code
+
 - **For the agent:**
 
   - LLMs do much, much better if forced to think step by step
@@ -229,8 +231,6 @@ class: small, two-column
   - Writing a spec forces you to think through ambiguities earlier
 
   - Prevents agent from wasting time implementing something that won’t work as intended
-
-- Catches mistaken assumptions before they’re baked into code
 
 * * *
 
@@ -244,35 +244,31 @@ class: small, two-column
 
 - **For the human:**
 
-- Specs allow senior engineers to review decisions at a higher level of abstraction
+  - Specs allow senior engineers to review decisions at a higher level of abstraction
 
-- More efficient than reviewing raw code
-
-- Also why good agent coding is easier for senior engineers than junior engineers
+  - More efficient than reviewing raw code
 
 * * *
 
-## Why Specs?: Specs Share Context and Enforce Consistency
+## Why Specs?: Enforce Consistency
 
-- **Shared context:**
+- Same process every time, regardless of which agent or human does the work
+
+- **Consistent context:**
 
   - As multiple human developers and agents work together, shared docs let everyone look
     at the same things first
 
-- **Consistency:**
+- **Consistent process:**
 
   - Breaking development into phases (research, planning, architecture, implementation,
     validation) avoids common mistakes
-
-- Same process every time, regardless of which agent or human does the work
-
-- Reduces variance in quality across tasks
 
 * * *
 
 ## Why Specs?: Specs Consolidate References
 
-- Specs should always have copious citations and links to the codebase
+- Allow copious citations and links to the codebase
 
 - Agent gains context but can go deeper where needed
 
@@ -348,17 +344,17 @@ class: small, two-column
 
 - **Beads** (Steve Yegge’s `bd` tool): Light-weight, token-friendly issue tracker
 
-- Replaces Markdown checklists and to-do lists, which are error-prone for agents
+- Very powerful!
 
-- Best tool yet for agent task management, progress tracking, and orchestration
+  - Best tool yet for agent task management, progress tracking, and orchestration
 
-- Auto-syncs with git (`.beads/issues.jsonl`)
+  - Replaces Markdown checklists
 
-- How beads complements specs:
+  - Auto-syncs with git (`.beads/issues.jsonl` + local DB)
 
-  - Beads handles *task tracking* (what to do next, status, dependencies)
+- How do beads relate to specs?
 
-  - Specs handle *context and design* (why, how, architecture)
+  - Remove excessive process
 
   - Long-lived docs (architecture, research) don’t need to be rewritten in each issue
 

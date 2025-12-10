@@ -71,13 +71,15 @@ Over the past couple years I’ve been heavily using LLMs for coding.
 But until summer 2025, I did it very interactively, usually in Cursor, writing key parts
 myself, then LLMs to edit and debug, touching the code at almost every stage.
 
-However, then I began working with a friend on a new but complex full-stack product.
-We had a lot to build, so we began to experiment with using Claude Code and Cursor
-agents aggressively to write more and more of the code.
+However, then I began working with a friend on a new but complex full-stack product,
+[AI Trade Arena](https://www.aitradearena.com/). This had a lot of product surface area.
+So we began to experiment with using Claude Code and Cursor agents aggressively to write
+more and more of the code.
 A greenfield project with a modern framework (this is a full-stack agent framework and
 web UI in TypeScript with a [Convex](https://github.com/get-convex) backend) and only 2
-(human) developers was a good test.
+(human) developers was a good testbed for new development processes.
 
+Unlike quick vibe coding projects, we wanted this to be a maintainable product.
 At first, unsurprisingly, as the codebase grew, we saw lots of slop code and painfully
 stupid bugs. This really isn’t surprising: by now we all realize the training data for
 LLMs includes mostly mediocre code.
@@ -248,7 +250,7 @@ Specs have key advantages because they:
   And it is key to avoiding many of the problems where agents re-invent the wheel
   repeatedly because they are unaware of better approaches.
 
-### More Take-Aways
+### More Conclusionss
 
 A few more thoughts on all this:
 
