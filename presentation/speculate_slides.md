@@ -1,0 +1,381 @@
+# Spec-Driven Agent Coding
+
+## A Few Thoughts
+
+Joshua Levy
+
+December 9, 2025
+
+* * *
+
+## An Experiment: Can Agents Write Most of the Code?
+
+- Over the past 2 years, I’ve used LLMs for coding a lot
+
+  - But very interactively (mostly Cursor, touching code at every stage)
+
+- Summer 2025: Began experimenting with aggressive agent use (Claude Code, Cursor
+  agents)
+
+- New project: Greenfield full-stack project, modern framework (TypeScript + Convex),
+  only 2 human developers
+
+- Goal
+
+  - Push agents to write more and more of the code autonomously
+
+- Good conditions
+
+  - New codebase, no legacy constraints, small team
+
+* * *
+
+## The Immediate Problems with Agent Code
+
+- As codebase grew: slop code and painfully stupid bugs
+
+- LLM training data includes mostly mediocre code
+
+- Bad code in context encourages agents to repeat poor patterns
+
+- Even the best models (Claude Sonnet 4.5, GPT-5 Codex High) can make really dumb
+  choices
+
+- Worse: many errors are subtle, not obvious
+
+- Without intervention, quality degrades to the point of uselessness
+
+* * *
+class: small, two-column
+
+## Typical Agent Code Problems (Incomplete List)
+
+- Make conspicuously poor decisions (e.g., parsing YAML with regex) then double down
+  repeatedly
+
+- Blindly confirm erroneous assumptions (“you’re absolutely right!”) even when
+  docs/tests prove otherwise
+
+- Create new TypeScript types that nearly duplicate existing types, over and over
+
+- Choose poor libraries or outdated versions of libraries
+
+- Forget important testing steps or skip writing tests entirely
+
+- Stop commenting/documenting code, then repeat poor patterns until no effective
+  documentation exists
+
+- Write trivial, useless test clutter (e.g., tests that just check object fields didn’t
+  mysteriously change)
+
+- Use optional parameters then accidentally omit them during refactors, creating subtle
+  type-checker-invisible bugs
+
+- Design code without agent-friendly testing loops (e.g., complex DB queries only
+  testable via React UI)
+
+- Preserve backward compatibility needlessly (renaming methods) but forget it for subtle
+  schema changes
+
+- Compound poor design choices repeatedly until the whole design needs immense
+  simplification
+
+- Make fundamental incorrect assumptions if you haven’t been sufficiently explicit (and
+  not check with you)
+
+- Invent features that don’t exist in tools/libraries, wasting large amounts of time
+
+- Re-invent the same Tailwind UI patterns with random subtle variations
+
+* * *
+
+## Approach: Two Areas of Improvement
+
+- Problem required getting more disciplined—like managing a human engineering team
+
+- *First area:* **More rigorous development processes**
+
+- *Second area:* **More flexible context engineering**
+
+- *Key insight:* Agents have much higher tolerance for process rules than human
+  engineers
+
+  - Process is cheap when agents do the work—worth the overhead
+
+- Structure and rules give significant improvements in both speed and code quality
+
+* * *
+
+## Approach: Rigorous Development Processes
+
+- Moved most coding to spec-driven development
+
+- Broke specs into distinct phases: planning, implementation, validation
+
+- Enforced strict coding rules at commit time to reduce common bugs
+
+- *Added shortcuts:* Small docs that outline a process
+
+- *Added extensive testing:* Unit tests, integration tests, golden tests, end-to-end
+  tests
+
+- Testing during implementation, not after
+
+* * *
+
+## Approach: Flexible Context Engineering
+
+- In practice: lots of docs organized by purpose or workflow
+
+- **Long-lived docs:** Research docs, architecture docs, shortcut docs with defined
+  processes
+
+- **Shorter-lived specs:** Docs used to refine specific efforts (feature, complex
+  bugfix, refactor)
+
+- Specs reference long-lived docs for additional context
+
+- Keep docs small to moderate size with plenty of cross-references
+
+- Agent can load only relevant context at a given time
+
+* * *
+
+## Results: What Worked
+
+- After about one month: didn’t wince as often at agent-written code
+
+- Code quality acceptable even when entirely agent-written
+
+- Refactors easier because of good architecture docs
+
+- The more good structure added, the more maintainable codebase became
+
+- Quality improved as we added rules targeting specific problems we observed
+
+* * *
+
+## Results: The Numbers
+
+- **Two months** of development
+
+- **~250K lines** of full-stack TypeScript code (with Convex backend)
+
+- **~250K lines** of Markdown documentation
+
+- **Over 95%** of actual code was agent-written
+
+- **~90%** of specs, architecture docs, research briefs were agent-written (but with
+  more human feedback)
+
+- **Only ~10%** of agent rules and shortcut processes are edited by agents
+
+* * *
+
+## Results: Where Human Involvement Still Essential
+
+- Truly algorithmic problems require deeper human involvement
+
+- Architecture and infrastructure design needs senior oversight
+
+- Machine learning engineering: agents too prone to large mistakes
+
+- Junior engineers might miss these errors; senior review is critical
+
+- But for routine product engineering: agent code on par or better than typical startup
+  teams
+
+* * *
+
+## Results: Quality Indicators
+
+- Agent code still readable—as well as code written by good human engineers
+
+- Decisions and architecture documented *better* than most human engineering teams
+
+- Example: optional arguments in TypeScript so error-prone for agent refactors, we
+  banned them entirely
+
+- Insist on explicit nullable arguments instead
+
+- Specific, targeted rules based on observed problems are highly effective
+
+* * *
+
+## Why Specs?
+
+- With a good enough model, shouldn’t agents just write code from a request?
+
+- Often, no! Specs have key advantages
+
+  - Specs create structure that addresses fundamental LLM limitations
+
+  - Benefits accrue to both the agent AND the human
+
+  - Specs are the shared interface between human intent and agent execution
+
+* * *
+
+## Why Specs?: Specs Enforce Thinking Process
+
+- **For the agent:**
+
+  - LLMs do much, much better if forced to think step by step
+
+  - Spec writing forces structured reasoning before implementation
+
+- **For the human:**
+
+  - Writing a spec forces you to think through ambiguities earlier
+
+  - Prevents agent from wasting time implementing something that won’t work as intended
+
+- Catches mistaken assumptions before they’re baked into code
+
+* * *
+
+## Why Specs?: Specs Manage Context
+
+- **For the agent:**
+
+  - Helps agent have only relevant information in context at a given time
+
+  - Specs can easily be reviewed by a second or third model (big advantage!)
+
+- **For the human:**
+
+- Specs allow senior engineers to review decisions at a higher level of abstraction
+
+- More efficient than reviewing raw code
+
+- Also why good agent coding is easier for senior engineers than junior engineers
+
+* * *
+
+## Why Specs?: Specs Share Context and Enforce Consistency
+
+- **Shared context:**
+
+  - As multiple human developers and agents work together, shared docs let everyone look
+    at the same things first
+
+- **Consistency:**
+
+  - Breaking development into phases (research, planning, architecture, implementation,
+    validation) avoids common mistakes
+
+- Same process every time, regardless of which agent or human does the work
+
+- Reduces variance in quality across tasks
+
+* * *
+
+## Why Specs?: Specs Consolidate References
+
+- Specs should always have copious citations and links to the codebase
+
+- Agent gains context but can go deeper where needed
+
+- Key to avoiding agents re-inventing the wheel repeatedly
+
+- Prevents agents from being unaware of better approaches already in codebase
+
+- External references (library docs, API docs) also consolidated in one place
+
+* * *
+
+## Thoughts: The Landscape is Changing Fast
+
+- Agent coding is changing ridiculously quickly
+
+- Has improved a lot just since mid-2025
+
+- None of this is foolproof—even with good process
+
+- Expect to continuously adapt your workflows
+
+- What works today may need revision in months
+
+* * *
+
+## Thoughts: Who This Works Best For
+
+- Spec-driven development most effective if you’re a fairly senior engineer already
+
+- Must be able to aggressively correct agent during spec writing
+
+- Must review code critically, not just accept output
+
+- Most effective for full-stack or product engineering
+
+- Main challenge there: implementing everything in a flexible way
+
+- Less suited: visually intensive frontend, algorithmic work, infrastructure, ML
+  engineering
+
+* * *
+
+## Thoughts: Process Without Manual Testing
+
+- Even if writing code by hand, research briefs and architecture docs are useful
+
+- Agents are great at maintaining documentation
+
+- For product engineering: can get away with very little manual code if specs are
+  reviewed
+
+- But you do have to actually read the spec docs and review the code!
+
+- Critical: avoid testing cycles that are manual
+
+* * *
+
+## Thoughts: Architecture for Agent Success
+
+- Combine this approach with architecture that makes testing really easy
+
+- Insist on architectures where all tasks are easy to run from command line
+
+- Insist on mockable APIs and databases
+
+- Even integration testing should be easy from command line
+
+- Agent-unfriendly architectures (manual-only testing) will bottleneck your process
+
+* * *
+
+## Thoughts: Beads for Task Tracking
+
+- **Beads** (Steve Yegge’s `bd` tool): Light-weight, token-friendly issue tracker
+
+- Replaces Markdown checklists and to-do lists, which are error-prone for agents
+
+- Best tool yet for agent task management, progress tracking, and orchestration
+
+- Auto-syncs with git (`.beads/issues.jsonl`)
+
+- How beads complements specs:
+
+  - Beads handles *task tracking* (what to do next, status, dependencies)
+
+  - Specs handle *context and design* (why, how, architecture)
+
+  - Long-lived docs (architecture, research) don’t need to be rewritten in each issue
+
+- Still experimenting, but promising integration with spec-driven workflows
+
+* * *
+
+## Thoughts: Conclusions
+
+- With discipline, this approach is really powerful
+
+- Contrary to what some say: doesn’t lead to buggy, dangerous, unmaintainable code
+
+- Blind vibe coding does lead to those problems—this is different
+
+- Much faster than writing the same code fully by hand
+
+- Key: structure, specs, rules, testing, and human review at the right moments
+
+* * *
