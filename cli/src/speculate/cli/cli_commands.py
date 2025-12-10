@@ -163,6 +163,7 @@ def update() -> None:
 def install(
     include: list[str] | None = None,
     exclude: list[str] | None = None,
+    force: bool = False,
 ) -> None:
     """Generate tool configs for Cursor, Claude Code, and Codex.
 
@@ -172,6 +173,9 @@ def install(
       - AGENTS.md (for Codex) — adds speculate header if missing
       - .cursor/rules/ (symlinks for Cursor)
 
+    If CLAUDE.md doesn't exist, creates it as a symlink to AGENTS.md.
+    If CLAUDE.md already exists as a regular file, updates both files.
+
     This command is idempotent and can be run multiple times safely.
     It's automatically called by `init` and `update`.
 
@@ -180,10 +184,13 @@ def install(
       - `**` matches any path segments
       - Default: include all (["**/*.md"])
 
+    Use --force to overwrite existing .cursor/rules/ symlinks.
+
     Examples:
       speculate install
       speculate install --include "general-*.md"
       speculate install --exclude "convex-*.md"
+      speculate install --force
     """
     cwd = Path.cwd()
     docs_path = cwd / "docs"
@@ -200,14 +207,25 @@ def install(
     # .speculate/settings.yml — track install metadata
     _update_speculate_settings(cwd)
 
-    # CLAUDE.md — ensure speculate header at top (idempotent)
-    _ensure_speculate_header(cwd / "CLAUDE.md")
+    claude_md = cwd / "CLAUDE.md"
+    agents_md = cwd / "AGENTS.md"
 
-    # AGENTS.md — ensure speculate header at top (idempotent)
-    _ensure_speculate_header(cwd / "AGENTS.md")
+    # Handle CLAUDE.md and AGENTS.md setup
+    # If CLAUDE.md doesn't exist, create it as a symlink to AGENTS.md
+    if not claude_md.exists() and not claude_md.is_symlink():
+        # First ensure AGENTS.md exists with the header
+        _ensure_speculate_header(agents_md)
+        # Then create CLAUDE.md as a symlink to AGENTS.md
+        claude_md.symlink_to("AGENTS.md")
+        print_success("Created CLAUDE.md -> AGENTS.md symlink")
+    else:
+        # CLAUDE.md exists (as file or symlink)
+        # _ensure_speculate_header handles symlinks by skipping them
+        _ensure_speculate_header(claude_md)
+        _ensure_speculate_header(agents_md)
 
     # .cursor/rules/
-    _setup_cursor_rules(cwd, include=include, exclude=exclude)
+    _setup_cursor_rules(cwd, include=include, exclude=exclude, force=force)
 
     rprint()
     print_success("Tool configs installed!")
@@ -355,10 +373,17 @@ SPECULATE_HEADER_PATTERN = re.compile(
 def _ensure_speculate_header(path: Path) -> None:
     """Ensure SPECULATE_HEADER is at the top of the file (idempotent).
 
+    If file is a symlink, skip it (will be handled via its target).
     If file exists and already has the marker, do nothing.
     If file exists without marker, prepend the header.
     If file doesn't exist, create with just the header.
     """
+    # Skip symlinks - only write to the actual target
+    if path.is_symlink():
+        target = path.resolve()
+        print_info(f"{path.name} is a symlink to {target.name}, skipping")
+        return
+
     if path.exists():
         content = path.read_text()
         if SPECULATE_MARKER in content:
@@ -439,51 +464,92 @@ def _setup_cursor_rules(
     project_root: Path,
     include: list[str] | None = None,
     exclude: list[str] | None = None,
+    force: bool = False,
 ) -> None:
-    """Set up .cursor/rules/ with symlinks to docs/general/agent-rules/.
+    """Set up .cursor/rules/ with symlinks to agent-rules directories.
+
+    Collects rules from both docs/general/agent-rules/ and docs/project/agent-rules/,
+    with project rules taking precedence over general rules of the same name.
 
     Note: Cursor requires .mdc extension, so we create symlinks with .mdc
     extension pointing to the source .md files.
 
     Supports include/exclude patterns for filtering which rules to link.
+    Use force=True to overwrite existing symlinks.
     """
     cursor_dir = project_root / ".cursor" / "rules"
     cursor_dir.mkdir(parents=True, exist_ok=True)
 
-    rules_dir = project_root / "docs" / "general" / "agent-rules"
-    if not rules_dir.exists():
-        print_warning("docs/general/agent-rules/ not found, skipping Cursor setup")
+    general_rules_dir = project_root / "docs" / "general" / "agent-rules"
+    project_rules_dir = project_root / "docs" / "project" / "agent-rules"
+
+    # Collect rules from both sources, project takes precedence
+    # Maps stem -> (source_path, relative_dir_for_symlink)
+    rules: dict[str, tuple[Path, str]] = {}
+
+    if general_rules_dir.exists():
+        for rule_file in general_rules_dir.glob("*.md"):
+            rules[rule_file.stem] = (rule_file, "docs/general/agent-rules")
+    else:
+        print_warning("docs/general/agent-rules/ not found")
+
+    if project_rules_dir.exists():
+        for rule_file in project_rules_dir.glob("*.md"):
+            # Project rules override general rules of same name
+            rules[rule_file.stem] = (rule_file, "docs/project/agent-rules")
+
+    if not rules:
+        print_warning("No agent-rules found, skipping Cursor setup")
         return
 
     linked_count = 0
-    skipped_count = 0
-    for rule_file in sorted(rules_dir.glob("*.md")):
+    skipped_by_pattern = 0
+    skipped_existing = 0
+
+    for stem in sorted(rules.keys()):
+        rule_path, relative_dir = rules[stem]
+
         # Check include/exclude patterns
-        if not _matches_patterns(rule_file.name, include, exclude):
-            skipped_count += 1
+        if not _matches_patterns(rule_path.name, include, exclude):
+            skipped_by_pattern += 1
             continue
 
         # Cursor requires .mdc extension
-        link_name = rule_file.stem + ".mdc"
+        link_name = stem + ".mdc"
         link_path = cursor_dir / link_name
+
         if link_path.exists() or link_path.is_symlink():
+            if not force:
+                skipped_existing += 1
+                continue
             link_path.unlink()
 
         # Create relative symlink
-        relative_target = Path("..") / ".." / "docs" / "general" / "agent-rules" / rule_file.name
+        relative_target = Path("..") / ".." / relative_dir / rule_path.name
         link_path.symlink_to(relative_target)
         linked_count += 1
 
-    msg = f"Linked {linked_count} rules to .cursor/rules/"
-    if skipped_count:
-        msg += f" ({skipped_count} skipped by pattern)"
-    print_success(msg)
+    # Build informative message
+    msg_parts = []
+    if linked_count:
+        msg_parts.append(f"linked {linked_count}")
+    if skipped_existing:
+        msg_parts.append(f"skipped {skipped_existing} existing")
+    if skipped_by_pattern:
+        msg_parts.append(f"skipped {skipped_by_pattern} by pattern")
+
+    if msg_parts:
+        msg = ".cursor/rules/: " + ", ".join(msg_parts)
+        print_success(msg)
+    else:
+        print_info(".cursor/rules/: no changes")
 
 
 def _remove_cursor_rules(project_root: Path) -> None:
     """Remove .cursor/rules/*.mdc symlinks that point to speculate docs.
 
     Only removes symlinks, not regular files. Also removes broken symlinks.
+    Handles symlinks to both docs/general/agent-rules/ and docs/project/agent-rules/.
     """
     cursor_dir = project_root / ".cursor" / "rules"
     if not cursor_dir.exists():
@@ -495,8 +561,13 @@ def _remove_cursor_rules(project_root: Path) -> None:
             # Check if it points to our docs (or is broken)
             try:
                 target = link_path.resolve()
-                # Remove if it points to docs/general/agent-rules/ or is broken
-                if "docs/general/agent-rules" in str(target) or not target.exists():
+                # Remove if it points to docs/general/agent-rules/ or docs/project/agent-rules/ or is broken
+                target_str = str(target)
+                if (
+                    "docs/general/agent-rules" in target_str
+                    or "docs/project/agent-rules" in target_str
+                    or not target.exists()
+                ):
                     link_path.unlink()
                     removed_count += 1
             except OSError:

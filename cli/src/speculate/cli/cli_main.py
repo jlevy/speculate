@@ -97,6 +97,11 @@ def build_parser() -> argparse.ArgumentParser:
                 action="append",
                 help="exclude rules matching pattern (supports * and **)",
             )
+            subparser.add_argument(
+                "--force",
+                action="store_true",
+                help="overwrite existing .cursor/rules/ symlinks",
+            )
 
         if func is uninstall:
             subparser.add_argument(
@@ -134,7 +139,7 @@ def main() -> None:
         elif subcommand == "update":
             update()
         elif subcommand == "install":
-            install(include=args.include, exclude=args.exclude)
+            install(include=args.include, exclude=args.exclude, force=args.force)
         elif subcommand == "uninstall":
             uninstall(force=args.force)
         elif subcommand == "status":

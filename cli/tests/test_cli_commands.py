@@ -134,6 +134,85 @@ class TestSetupCursorRules:
         _setup_cursor_rules(tmp_path)
         # The function prints a warning via rich - we just verify it doesn't raise
 
+    def test_skips_existing_symlinks_without_force(self, tmp_path: Path):
+        """Should skip existing symlinks unless force=True."""
+        rules_dir = tmp_path / "docs" / "general" / "agent-rules"
+        rules_dir.mkdir(parents=True)
+        (rules_dir / "test.md").write_text("# Test")
+
+        # First run creates the symlink
+        _setup_cursor_rules(tmp_path)
+        cursor_dir = tmp_path / ".cursor" / "rules"
+        link = cursor_dir / "test.mdc"
+        assert link.is_symlink()
+
+        # Second run without force should skip
+        _setup_cursor_rules(tmp_path)
+        assert link.is_symlink()
+
+    def test_overwrites_existing_symlinks_with_force(self, tmp_path: Path):
+        """Should overwrite existing symlinks when force=True."""
+        rules_dir = tmp_path / "docs" / "general" / "agent-rules"
+        rules_dir.mkdir(parents=True)
+        (rules_dir / "test.md").write_text("# Test")
+
+        # First run creates the symlink
+        _setup_cursor_rules(tmp_path)
+        cursor_dir = tmp_path / ".cursor" / "rules"
+        link = cursor_dir / "test.mdc"
+        assert link.is_symlink()
+
+        # Second run with force should overwrite
+        _setup_cursor_rules(tmp_path, force=True)
+        assert link.is_symlink()
+
+    def test_merges_general_and_project_rules(self, tmp_path: Path):
+        """Should merge rules from general and project directories."""
+        # Create general rules
+        general_rules = tmp_path / "docs" / "general" / "agent-rules"
+        general_rules.mkdir(parents=True)
+        (general_rules / "general-rules.md").write_text("# General")
+        (general_rules / "shared-rules.md").write_text("# General Shared")
+
+        # Create project rules
+        project_rules = tmp_path / "docs" / "project" / "agent-rules"
+        project_rules.mkdir(parents=True)
+        (project_rules / "project-rules.md").write_text("# Project")
+
+        _setup_cursor_rules(tmp_path)
+
+        cursor_dir = tmp_path / ".cursor" / "rules"
+        assert (cursor_dir / "general-rules.mdc").is_symlink()
+        assert (cursor_dir / "shared-rules.mdc").is_symlink()
+        assert (cursor_dir / "project-rules.mdc").is_symlink()
+
+        # Verify project-rules points to project directory
+        target = os.readlink(cursor_dir / "project-rules.mdc")
+        assert "docs/project/agent-rules" in target
+
+    def test_project_rules_override_general(self, tmp_path: Path):
+        """Project rules should take precedence over general rules of same name."""
+        # Create general rules
+        general_rules = tmp_path / "docs" / "general" / "agent-rules"
+        general_rules.mkdir(parents=True)
+        (general_rules / "python-rules.md").write_text("# General Python")
+
+        # Create project rules with same name
+        project_rules = tmp_path / "docs" / "project" / "agent-rules"
+        project_rules.mkdir(parents=True)
+        (project_rules / "python-rules.md").write_text("# Project Python")
+
+        _setup_cursor_rules(tmp_path)
+
+        cursor_dir = tmp_path / ".cursor" / "rules"
+        link = cursor_dir / "python-rules.mdc"
+        assert link.is_symlink()
+
+        # Should point to project version, not general
+        target = os.readlink(link)
+        assert "docs/project/agent-rules" in target
+        assert "docs/general/agent-rules" not in target
+
 
 class TestInstallCommand:
     """Tests for install command."""
@@ -163,6 +242,71 @@ class TestInstallCommand:
         assert (tmp_path / "CLAUDE.md").exists()
         assert (tmp_path / "AGENTS.md").exists()
         assert (tmp_path / ".cursor" / "rules").exists()
+
+    def test_creates_claude_md_as_symlink_when_not_exists(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ):
+        """Should create CLAUDE.md as symlink to AGENTS.md when CLAUDE.md doesn't exist."""
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        monkeypatch.chdir(tmp_path)
+        install()
+
+        claude_md = tmp_path / "CLAUDE.md"
+        agents_md = tmp_path / "AGENTS.md"
+
+        # CLAUDE.md should be a symlink
+        assert claude_md.is_symlink()
+        # AGENTS.md should be a regular file
+        assert agents_md.exists()
+        assert not agents_md.is_symlink()
+        # CLAUDE.md should point to AGENTS.md
+        assert os.readlink(claude_md) == "AGENTS.md"
+        # AGENTS.md should have the speculate header
+        assert SPECULATE_MARKER in agents_md.read_text()
+
+    def test_preserves_existing_claude_md_file(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Should preserve existing CLAUDE.md as a file (not convert to symlink)."""
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        # Create CLAUDE.md as a regular file
+        claude_md = tmp_path / "CLAUDE.md"
+        claude_md.write_text("# My custom CLAUDE instructions")
+
+        monkeypatch.chdir(tmp_path)
+        install()
+
+        # CLAUDE.md should still be a regular file, not a symlink
+        assert not claude_md.is_symlink()
+        assert claude_md.exists()
+        # Should have speculate header prepended
+        content = claude_md.read_text()
+        assert SPECULATE_MARKER in content
+        assert "My custom CLAUDE instructions" in content
+
+    def test_idempotent_with_claude_symlink(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Running install twice should be idempotent when CLAUDE.md is a symlink."""
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        monkeypatch.chdir(tmp_path)
+
+        # First install
+        install()
+
+        claude_md = tmp_path / "CLAUDE.md"
+        agents_md = tmp_path / "AGENTS.md"
+        agents_content_after_first = agents_md.read_text()
+
+        # Second install
+        install()
+
+        # CLAUDE.md should still be a symlink
+        assert claude_md.is_symlink()
+        # AGENTS.md content should be unchanged (idempotent)
+        assert agents_md.read_text() == agents_content_after_first
 
 
 class TestStatusCommand:
@@ -248,6 +392,24 @@ class TestEnsureSpeculateHeader:
         _ensure_speculate_header(test_file)
 
         assert test_file.read_text() == original_content
+
+    def test_skips_symlink(self, tmp_path: Path):
+        """Should skip symlinks and not modify them."""
+        # Create AGENTS.md as the real file
+        agents_md = tmp_path / "AGENTS.md"
+        agents_md.write_text("# Original content")
+
+        # Create CLAUDE.md as a symlink to AGENTS.md
+        claude_md = tmp_path / "CLAUDE.md"
+        claude_md.symlink_to("AGENTS.md")
+
+        # Calling on the symlink should skip it
+        _ensure_speculate_header(claude_md)
+
+        # AGENTS.md should not be modified
+        assert agents_md.read_text() == "# Original content"
+        # CLAUDE.md should still be a symlink
+        assert claude_md.is_symlink()
 
 
 class TestRemoveSpeculateHeader:
