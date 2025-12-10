@@ -4,6 +4,8 @@ Instructions:
 
 This process must be followed before committing code!
 
+Create a to-do list with the following items then perform all of them:
+
 1. **Confirm spec is in sync:**
 
    If the work has been done using a feature spec or bugfix spec (typically in

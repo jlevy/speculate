@@ -2,15 +2,17 @@ Shortcut: New PR and Validation Plan
 
 Instructions:
 
-1. **Confirm feature docs:** Make sure it’s clear what Feature Plan and Feature
-   Implementation docs are in scope.
-   The user should provide it and you should find them in @docs/project/specs/active/
-   with plan- and impl- prefixes (e.g., plan-YYYY-MM-DD-*.md and impl-YYYY-MM-DD-*.md).
+Create a to-do list with the following items then perform all of them:
+
+1. **Confirm feature docs:** Check if a Plan Spec and/or Implementation Spec are in
+   scope or provided by the user.
+   You should find them in @docs/project/specs/active/ with plan- and impl- prefixes
+   (e.g., plan-YYYY-MM-DD-*.md and impl-YYYY-MM-DD-*.md).
    If isn’t clear, stop and ask!
 
 2. **Create validation plan doc:** Copy @docs/project/specs/template-validation-spec.md
    to @docs/project/specs/active/valid-YYYY-MM-DD-feature-some-description.md (filling
-   in the date and the appropriate description of the feature, matching the Feature Plan
+   in the date and the appropriate description of the feature, matching the Plan Spec
    filename stem with valid- replacing plan-)
 
 3. **Fill in the validation plan:** Fill in the template, in particular covering
@@ -51,3 +53,5 @@ Instructions:
 
 - You *MUST* make the build pass.
   If you cannot or don’t know how, tell the user and ask for help.
+
+5. Update and sync all beads following the standard process.

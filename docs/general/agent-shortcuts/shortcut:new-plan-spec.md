@@ -1,9 +1,11 @@
-Shortcut: New Feature Plan
+Shortcut: New Plan Spec
 
 Instructions:
 
+Create a to-do list with the following items then perform all of them:
+
 1. Review @docs/project/specs/active/ to see the list of recent feature specs, feature
-   plans, and feature implementation docs.
+   plans, and implementation spec docs.
 
 2. Copy @docs/project/specs/template-plan-spec.md to
    @docs/project/specs/active/plan-YYYY-MM-DD-feature-some-description.md (filling in

@@ -2,6 +2,8 @@ Shortcut: New Architecture Doc
 
 Instructions:
 
+Create a to-do list with the following items then perform all of them:
+
 1. Review @docs/project/architecture/ to see the list of existing architecture documents
    and understand the architectural patterns used in the project.
 

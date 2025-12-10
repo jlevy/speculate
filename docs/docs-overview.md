@@ -29,6 +29,8 @@ General rules that apply to all projects:
 
 - @docs/general/agent-guidelines/ — Guidelines and notes on development practices
 
+- @docs/general/agent-setup/ — Setup guides for tools (GitHub CLI, beads, etc.)
+
 ### `docs/project/` — Project-specific documentation
 
 Project-specific specifications, architecture, and research docs:

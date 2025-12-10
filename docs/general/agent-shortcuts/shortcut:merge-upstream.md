@@ -2,6 +2,8 @@ Shortcut: Merge Upstream Changes to This Branch
 
 Instructions:
 
+Create a to-do list with the following items then perform all of them:
+
 1. Be sure to check current branch you are on and git fetch --all to get all commits on
    all branches (if any changes are uncommitted ask the user if you should commit)
 

@@ -1,7 +1,12 @@
-Development Spike: Prototype & Refine Specification You are conducting a development
-spike to validate and improve a technical specification through hands-on implementation.
+Shortcut: Development Spike
+
+Prototype & Refine Specification
+
+You are conducting a development spike to validate and improve a technical specification
+through hands-on implementation.
 Write production-quality code to uncover real constraints, but treat this iteration as a
 learning exercise that may be discarded.
+
 Process
 
 Understand the Spec: Read the provided technical specification thoroughly.

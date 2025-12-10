@@ -2,6 +2,8 @@ Shortcut: Revise Architecture Document
 
 Instructions:
 
+Create a to-do list with the following items then perform all of them:
+
 1. Read the given architecture document
 
 2. Read all code referenced in the document

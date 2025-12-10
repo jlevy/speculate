@@ -6,6 +6,8 @@ Help me walk through the codebase together to follow the flow of execution and v
 all logic is correct and that the internal specs and docs are consistent with the
 current code.
 
+Create a to-do list with the following items then perform all of them:
+
 1. Review the architecture docs in @docs/project/architecture/ to understand the overall
    behavior of execution and persistence.
 
