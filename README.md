@@ -2,9 +2,13 @@
 
 **Speculate** is a **project structure for spec-driven agent coding**.
 
-It includes **common rules, templates, and shortcut prompts** (in the [docs/](docs/)
-folder) that help any coding agent like Claude Code, Codex, or Cursor plan better using
-specs, follow more defined processes that result in better code.
+⚠️ *This is alpha quality!
+Although they’re imperfect and evolving, these workflows and prompts seem to be very
+powerful so I wanted to put them in shared place others can see too.*
+
+Speculate give you some **common rules, templates, and shortcut prompts** (in the
+[docs/](docs/) folder) that help any coding agent like Claude Code, Codex, or Cursor
+plan better using specs, follow more defined processes that result in better code.
 You can browse these in the [docs/](docs/) folder.
 
 Speculate also includes a **CLI tool**, `speculate`, that helps copy and update these
@@ -12,7 +16,7 @@ Markdown docs within your own repo.
 
 The goal of this structure is to improve development *and* quality of code.
 
-You can use these docs however you like, but we find it is the combination of workflows
+You can use these docs however you like, but I find it is the combination of workflows
 that really adds benefit.
 It is likely a good fit for individual senior engineers or small teams who want the
 velocity of writing lots of code with agents but still need sustainable, good
@@ -136,25 +140,33 @@ We used all these problems as a chance to get more disciplined and improve
 processes—much like you would with a human engineering team.
 
 The first area of improvement was **more rigorous development processes**. We moved most
-coding to specification-driven development.
-We broke specs into planning, implementation, and validation stages for more precision.
-We enforced strict coding rules at commit time to reduce common bugs we saw agents
-introduce.
+coding to specification-driven development:
 
-Then you can layer this with shortcuts: small docs that outline a process.
-It’s then quick to reference shortcuts.
+- We broke specs into planning, implementation, and validation stages for more
+  precision.
 
-And we added tests. Lots and lots of tests: unit tests, integration tests, golden tests,
-and end-to-end tests.
+- We enforced strict coding rules at commit time to reduce common bugs we saw agents
+  introduce.
+
+- We added another layer of shortcuts: small docs that outline a process.
+  It’s then quick to reference shortcuts.
+
+- And we added tests. Lots and lots of tests: unit tests, integration tests, golden
+  tests, and end-to-end tests.
 
 The second way was **more flexible context engineering**. In practice, this really means
-lots of docs organized by the purpose or workflow.
-You have longer-lived research docs with background, architecture docs summarizing the
-system, and shortcuts with defined processes.
-And then you use these to write shorter-lived specs for planning, implementation, and
-validation.
+lots of docs organized by the purpose or workflow:
 
-The workflows are a bit complex.
+- **Long-lived docs:** These are research docs with background and architecture docs
+  summarizing the system.
+  It also includes the shortcut docs with defined processes.
+
+- **Shorter-lived specs:** Specs are docs used to refine a specific larger effort like a
+  feature, complex bugfix, or a refactor.
+  Specs can be used for planning, implementation, and validation.
+  These reference the long-lived docs for additinal context.
+
+The workflows around all the docs a bit complex.
 But *agents have much higher tolerance for process rules than human engineers*. They are
 so cheap, process is worth it!
 
@@ -164,7 +176,8 @@ more maintainable it became.
 
 ### What Worked
 
-After about a month of this, we didn’t wince when looking at agent code anymore.
+After about a month of this, we didn’t wince as often because the code quality was so
+low, even when the code was entirely agent-written.
 Refactors were also easier because we had good architecture docs.
 
 In about two months, we shipped about 250K lines of full-stack TypeScript code (with
@@ -314,6 +327,30 @@ The key insights for this approach are:
   3 to 10 sub-tasks, each of which might reference other docs.
   Agents are great at following short to-do lists so all shortcut docs are just ways to
   use these to-do lists with less typing.
+
+## About Beads (New!)
+
+A big recent development has been the popularity of Steve Yegge’s
+[beads tool](https://github.com/steveyegge/beads).
+
+One of his big insights is that beads are like light-weight, token-friendly issues,
+replacing Markdown checklists and to-do lists that are often error prone.
+
+Beads are indeed awesome.
+I think they are the best tool yet for agent task management, progress tracking, and
+task orchestration.
+
+He also talks about how plan docs become overwhelming after while, so uses beads to
+replace them.
+At least based on my initial experience with beads, I still find the larger
+spec-driven process outlined above still is essential, but beads relieve the pressure on
+using Markdown for tracking tasks and progress.
+In particular, long-lived docs like the architecture and research docs seem only to help
+with beads, so you don’t have to rewrite such context over and over.
+
+I’ve started integrating beads into the existing spec workflows to track all
+implementation work and it seems to complement the other docs it pretty well so far.
+(I’ve only been doing this for a few days so will update this soon.)
 
 ## Documentation Layout
 
