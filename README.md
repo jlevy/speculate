@@ -1,10 +1,14 @@
 # Speculate
 
-**Speculate** is a **project structure for spec-driven agent coding**.
+🔹 Read ***[Thoughts On Spec-Driven Agent
+Coding](about/thoughts_on_spec_driven_agent_coding.md)*** for more on experiences using
+these workflows.
 
 ⚠️ *This is alpha quality!
 Although they’re imperfect and evolving, these workflows and prompts seem to be very
 powerful so I wanted to put them in shared place others can see too.*
+
+**Speculate** is a **project structure for spec-driven agent coding**.
 
 Speculate give you some **common rules, templates, and shortcut prompts** (in the
 [docs/](docs/) folder) that help any coding agent like Claude Code, Codex, or Cursor
@@ -59,17 +63,10 @@ engineering that won’t fall apart as a codebase grows in complexity.
    **`@shortcut:implement-spec.md`** to implement, **`@shortcut:commit-code.md`** to
    commit.
 
-If you are in a hurry to try things, go straight to the
-[documentation layout](#documentation-layout).
-Then see the [extended example](how-it-works-a-detailed-example) for more details.
+## Agent Docs Layout
 
-## Thoughts on Spec-Driven Agent Coding
-
-🔹 [Read this post](about/thoughts_on_spec_driven_agent_coding.md)
-(**`about/thoughts_on_spec_driven_agent_coding.md`**) for more on experiences using
-these workflows.
-
-## Documentation Layout
+Most of this repo is just a “skeleton” structure for docs plus a bunch of suggested
+rules and shortcut docs.
 
 ### Key Docs
 
