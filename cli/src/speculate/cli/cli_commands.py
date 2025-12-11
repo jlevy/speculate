@@ -530,7 +530,7 @@ def _setup_cursor_rules(
         linked_count += 1
 
     # Build informative message
-    msg_parts = []
+    msg_parts: list[str] = []
     if linked_count:
         msg_parts.append(f"linked {linked_count}")
     if skipped_existing:
