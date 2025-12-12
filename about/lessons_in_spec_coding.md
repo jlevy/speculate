@@ -25,27 +25,37 @@ writing key parts myself, then using LLMs to fill in parts and to debug.
 I’m a pretty picky code reviewer and usually ended up touching the code at almost every
 stage.
 
-A greenfield project like this, was a good testbed for new development processes.
-It’s a full-stack web app with a React web UI and a backend agent framework.
-We chose [Convex](https://github.com/get-convex) for the backend.[^1] Unlike quick vibe
-coded projects, we wanted this to be a maintainable codebase we could use in a real
-product.
+As a greenfield effort, this was a good opportunity to try new development processes.
+We wanted agents to do as much as possible.
+But unlike a vibe-coded hackathon project, we wanted this to be a maintainable codebase
+we could use for a real product.
+It’s a full-stack web app with a React web UI and a backend agent framework with
+[Convex](https://github.com/get-convex) for the backend.[^1]
 
-## Initial Agent Code Problems
+## The Problem of Slop Code
 
-We began by using Claude Code and Cursor agents aggressively to write more and more of
-the code. At first, unsurprisingly, as the codebase grew, we saw lots of slop code and
-painfully stupid bugs.
-This really isn’t surprising: by now we all realize the training data for LLMs includes
-mostly mediocre code.
+With LLMs, “slop” is not so much a description of content as it is a natural law, like
+entropy in physics or the force of gravity.
 
+Objects tend to fall to earth unless you engineer ways to prevent that.
+Coding agents trend toward the center of gravity of their coding training data.
+
+Unsurprisingly, as we began using Claude Code and Cursor agents aggressively to write
+more and more of the code, we saw lots of slop: numerous poor stylistic choices that
+wrapped more serious design mistakes, regularly punctuated with painfully stupid bugs.
+To add insult to injury, LLMs vacillate between assuring you’re right and denying things
+are problems.
+
+And worse, slop doesn’t just grow; it accelerates.
 Just like with human engineers, if you let an agent ship poor code, that one bad bit of
-code encourages the next agent to repeat the problem.
-Even the best agents using modern models like Claude Sonnet 4.5 and GPT-5 Codex High
+code encourages the *next* agent to repeat the same questionable style or bad judgement.
+Even the best agents using modern models like Claude Sonnet 4.5 and GPT-5 Codex High can
 make *really* stupid (and worse, subtle) errors.
 
-Without good examples and careful prompting, even the best agents perpetuate terrible
-patterns and rapidly proliferate unnecessary complexity.
+Good code means pushing away from the average—toward clarity, simplicity, and
+flexibility.
+Without good examples and careful prompting, even the best agents perpetuate
+terrible patterns and proliferate unnecessary complexity.
 
 For example, we saw agents routinely:
 
@@ -218,8 +228,8 @@ The [speculate](https://github.com/jlevy/speculate) repo is largely just a bunch
 Markdown docs in a clean, organized structure that you can add to and adjust.
 
 We try to keep all docs small to medium sized, for better context management.
-If you like, just go read the [docs/](https://github.com/jlevy/speculate/docs/) files
-and you’ll see how it works.
+If you like, just go read the [docs/](https://github.com/jlevy/speculate/tree/main/docs)
+files and you’ll see how it works.
 
 Shortcut docs reference other docs like templates and rule file docs.
 Spec docs like planning specs can reference other docs like architecture docs for
@@ -293,35 +303,38 @@ I’ve started integrating beads into the existing spec workflows to track all
 implementation work and it seems to complement the other docs it pretty well so far.
 (I’ve only been doing this for a few days so will update this soon.)
 
-## More Recommendations
+## More Take-Aways
 
 A few more thoughts on all this:
 
-1. **Check everything:** Agent coding is changing ridiculously quickly and it has
+1. **Process discipline pays off:** If done carefully, spec-driven agent development is
+   really powerful. Contrary to what some say, we have found it doesn’t lead to buggy,
+   dangerous, and unmaintainable code the way casually vibe coding does.
+   And it is much faster than writing the same code fully by hand.
+
+2. **Check everything:** Agent coding is changing ridiculously quickly and it has
    improved a lot just since mid-2025. But none of this is foolproof.
    You always need to review the code and/or have compelling, thorough approaches to
    testing behavior.
 
-2. **Good engineering judgement is essential:** Spec-driven development like this is
+3. **Good engineering judgement is essential:** Spec-driven development like this is
    powerful but most effective if you’re a fairly senior engineer already and can
    aggressively correct the agent during spec writing and when reviewing code.
+   Don’t just let agents do the standard, common thing typical in average code.
+   It really pays to think creatively about how to design something to minimize
+   complexity and improve visibility and testability.
 
-3. **Spec-driven development works well for product features:** It is also most
+4. **Spec-driven development works well for product features:** It is also most
    effective for full-stack or product engineering, where the main challenge is
    implementing everything in a flexible way.
    Visually intensive frontend engineering and “harder” algorithmic, infrastructure, or
    machine learning engineering still seem better suited to iteratively writing code by
    hand.
 
-4. **Agent-written docs are still useful even if you code without agents:** Even if you
+5. **Agent-written docs are still useful even if you code without agents:** Even if you
    are writing code by hand, the processes for writing research briefs and architecture
    docs is still useful.
    Agents are great at maintaining docs!
-
-5. **Process discipline pays off:** If done carefully, spec-driven agent development is
-   really powerful. Contrary to what some say, we have found it doesn’t lead to buggy,
-   dangerous, and unmaintainable code the way casually vibe coding does.
-   And it is much faster than writing the same code fully by hand.
 
 6. **Design away testing cycles that are manual!** I think this point is underrated.
    Everything we’ve talked about works *far* better if you define an architecture that
@@ -329,20 +342,93 @@ A few more thoughts on all this:
    command line so it is “token friendly” and allows most of the code paths to be tested
    without UI testing.
 
-## Leveling Up Your Testing
+## Claude Code and Other Agent Tips
 
-If there’s one final point to emphasize, it’s the last one.
-Encourage *extensive* testing, especially if you can design it in ways where the testing
-process itself is exhaustive yet maintainable.
+Years ago, before cloud infrastructure matured, it was common as a software engineer to
+spend lots of time on Linux system administration details.
+You had to sort out quirks in firewall rules on a particular operating system version
+just to get a web server running.
 
-In particular, testing shouldn’t require a web browser!
+I feel like the current state of agentic coding is a lot like this.
+You have to sort out lots of little setup details that are accidental to the current
+agentic tooling.
 
-- If at all possible, in your design processes, insist on architectures where all tasks
-  are easy to run from the command line as well as from API endpoints or web or mobile
-  UIs.
+Here are a few of the tips/tricks I currently use with Claude Code:
 
-- Insist on mockable APIs and databases, so even integration testing is easy from the
-  command line and can be included in standard tests on every commit or PR.
+1. The ***VSCode extension for Claude Code** is probably the best UI for agent loops
+   currently if you are using VSCode or Cursor.
+   It is more comfortable inside the IDE than the terminal interfaces and is implemented
+   efficiently. The UI is snappy.
+   For Claude, it’s currently the best.
+
+2. **Cursor’s agent loops** are quite good, and offer great features at switching models
+   during a session. They’ve also added a chooser to let you ask a question to more than
+   one model at once.
+
+3. **Opus 4.5** seems like the current king of coding models.
+   Great for planning and writing specs and for implementation.
+   And it works great in Claude Code.
+   But after you write a spec, have the other best models, especially **GPT 5.1 Codex
+   Max** and **Gemini 3 Pro** review it.
+   Ask to find omissions, errors, ways to simplify or improve, and they each almost
+   always will find things Opus missed.
+   I do this by switching out of Claude Code and using them as agents in Cursor.
+
+4. The **Claude Code web** agent coding seems like the best way to have many agents you
+   are interacting with simultaneously and managing at once across branches.
+   I’ve also tried [Conductor](https://github.com/ryanmac/code-conductor) and
+   [cmux](https://github.com/manaflow-ai/cmux), but at the moment Claude Code web seems
+   easiest to me as a first tool, then I fall back to others for additional review or
+   special uses. You can also access it from the mobile app!
+   I can start an agent job at home when I wake up and monitor 20 minutes later (“yes,
+   keep going!”) while I’m on the train to work.
+
+5. However, Claude Code web has some annoying restrictions.
+   The first is that it assumes you will create the PR by pressing a button to create it
+   manually. This is silly.
+   **Set up Claude Code Web to use the the `gh` CLI** to create the PR for you!
+   That way the agent can document validation steps, test CI passes, etc.
+   There is a workaround for this: use the
+   [github-cli-setup.md](../docs/general/agent-setup/github-cli-setup.md) instructions
+   I’ve given here.
+
+6. Similarly, you need a custom setup to **get Claude Code Web to use beads**. See
+   [beads-setup.md](../docs/general/agent-setup/beads-setup.md).
+
+## Leveling Up Full-Stack Testing
+
+If there’s one final point to emphasize, it’s this:
+
+> *When agent coding, the greatest accelerator is to pick architectures and agent rules
+> so the testing loop is exhaustive (high coverage), maintainable (changes easily as you
+> add features), and token-friendly (updating and rerunning tests fits in a rapid
+> agentic loop).*
+
+In particular, for full-stack web development, except when absolutely necessary for UI,
+testing shouldn’t require a web browser!
+Three things can help with this:
+
+- **Make everything usable via CLI:** In your design processes, insist on architectures
+  where all tasks are easy to run from the command line as well as from API endpoints or
+  web or mobile UIs.
+
+- **Make everything mockable:** Insist on mockable APIs and databases, so even
+  integration testing is easy from the command line and can be included in standard
+  tests on every commit or PR.
+
+- **Use golden tests:** For any workflow or operation, it should be possible to capture
+  and save stable run sessions (or traces) of everything that happened in a stable,
+  serialized form. Then a large portion of your end-to-end testing is token friendly and
+  possible without human validation.
+
+The use of golden tests is quite powerful and underrated.
+It is far preferable to having a domain specific trace of your system’s behavior checked
+into git (and diff-able with actual behavior) than to have an LLM constantly rewrite a
+bunch of messy unit tests (that themselves may be buggy).
+
+With human engineers, these policies might not always be a good idea, because they cost
+extra coding time. But adding a CLI or a bunch of mocks is actually fast for an LLM! So
+these are worthy investments.
 
 As an example, here are the kinds of tests we ask agents to use in
 [our TDD guidelines](https://github.com/jlevy/speculate/blob/main/docs/general/agent-guidelines/general-tdd-guidelines.md).
@@ -387,13 +473,6 @@ As an example, here are the kinds of tests we ask agents to use in
 >    - Are not run on every commit as they can have costs or side effects or be slow.
 >
 >    - Require API keys and network access.
-
-In particular, the use of **golden tests** is quite powerful if you design it into your
-system from early on.
-For any workflow or operation, it should be possible to capture and save stable run
-sessions (or traces) of everything that happened in a stable, serialized form.
-Then a large portion of your end-to-end testing is token friendly and possible without
-human validation.
 
 [^1]: We’ve been very happy with Convex!
     It takes a little adjustment but it is actually a great complement to agent coding.
