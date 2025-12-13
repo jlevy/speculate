@@ -309,6 +309,51 @@ Below are snapshots of how I currently lay out the docs in the project, along wi
 examples of (1) general rules (in this case TDD guidelines), (2) a research brief, and
 (3) a more complex plan spec.
 
+### Overall Docs Structure
+
+```
+docs/
+├── development.md              # Start here! Setup, build, lint, test workflows
+├── docs-overview.md            # Summary for agents to read first
+│
+├── general/                    # Shared across repos (synced via `speculate update`)
+│   ├── agent-rules/            # Coding standards and best practices
+│   │   ├── general-coding-rules.md
+│   │   ├── general-testing-rules.md
+│   │   ├── typescript-rules.md
+│   │   ├── python-rules.md
+│   │   └── ...
+│   ├── agent-shortcuts/        # Task prompts (shortcut:*.md)
+│   │   ├── shortcut:new-plan-spec.md
+│   │   ├── shortcut:implement-spec.md
+│   │   ├── shortcut:commit-code.md
+│   │   └── ...
+│   ├── agent-guidelines/       # Longer guidance docs (TDD, DI, testing)
+│   └── agent-setup/            # Tool setup guides for agents
+│       ├── github-cli-setup.md
+│       ├── beads-setup.md
+│       └── ...
+│
+└── project/                    # Project-specific (you add/edit these)
+    ├── specs/                  # Short-lived feature/task specs
+    │   ├── active/             # In-progress specs
+    │   ├── done/               # Completed (archived)
+    │   ├── future/             # Planned
+    │   ├── paused/             # On hold
+    │   ├── template-plan-spec.md
+    │   ├── template-implementation-spec.md
+    │   ├── template-validation-spec.md
+    │   └── template-bugfix.md
+    ├── architecture/           # Long-lived system design docs
+    │   ├── current/
+    │   ├── archive/
+    │   └── template-architecture.md
+    └── research/               # Long-lived research and investigations
+        ├── current/
+        ├── archive/
+        └── template-research-brief.md
+```
+
 ### General Docs: Rules Example
 
 <p align="center"> <a href="images/cursor_docs_general_rules.png"><img
