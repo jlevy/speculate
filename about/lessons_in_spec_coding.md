@@ -45,15 +45,15 @@ It’s a full-stack web app with a React web UI and a backend agent framework wi
 
 ## The Problem of Slop Code
 
-With LLMs, “slop” is not so much a description of content as it is a natural law, like
-entropy in physics or the force of gravity.
+With LLMs, “slop” is not so much a description of low-quality content as it is a natural
+law, like entropy in physics or the force of gravity.
 
 Objects tend to fall to earth unless you engineer ways to prevent that.
 Coding agents trend toward the center of gravity of their coding training data unless
-you build structures to guide it in other directions.
+you build structures to guide them in other directions.
 
 Unsurprisingly, as we began using Claude Code and Cursor agents aggressively to write
-more and more of the code, we saw lots of slop: numerous poor stylistic choices that
+nearly all of the code, we saw lots of slop: numerous poor stylistic choices that
 wrapped more serious design mistakes, regularly punctuated with painfully stupid bugs.
 To add insult to injury, LLMs vacillate between assuring you’re right and denying things
 are problems.
@@ -65,9 +65,9 @@ Even the best agents using modern models like Claude Sonnet 4.5 and GPT-5 Codex 
 make *really* stupid (and worse, subtle) errors.
 
 Good code means pushing away from the average—toward clarity, simplicity, and
-flexibility.
-Without good examples and careful prompting, even the best agents perpetuate
-terrible patterns and proliferate unnecessary complexity.
+flexibility in solving a problem.
+Without good examples and careful prompting, even the best agents perpetuate terrible
+patterns and proliferate unnecessary complexity.
 
 For example, we saw agents routinely:
 
@@ -308,6 +308,51 @@ implementation work and it seems to complement the other docs it pretty well so 
 Below are snapshots of how I currently lay out the docs in the project, along with
 examples of (1) general rules (in this case TDD guidelines), (2) a research brief, and
 (3) a more complex plan spec.
+
+### Overall Docs Structure
+
+```
+docs/
+├── development.md              # Start here! Setup, build, lint, test workflows
+├── docs-overview.md            # Summary for agents to read first
+│
+├── general/                    # Shared across repos (synced via `speculate update`)
+│   ├── agent-rules/            # Coding standards and best practices
+│   │   ├── general-coding-rules.md
+│   │   ├── general-testing-rules.md
+│   │   ├── typescript-rules.md
+│   │   ├── python-rules.md
+│   │   └── ...
+│   ├── agent-shortcuts/        # Task prompts (shortcut:*.md)
+│   │   ├── shortcut:new-plan-spec.md
+│   │   ├── shortcut:implement-spec.md
+│   │   ├── shortcut:commit-code.md
+│   │   └── ...
+│   ├── agent-guidelines/       # Longer guidance docs (TDD, DI, testing)
+│   └── agent-setup/            # Tool setup guides for agents
+│       ├── github-cli-setup.md
+│       ├── beads-setup.md
+│       └── ...
+│
+└── project/                    # Project-specific (you add/edit these)
+    ├── specs/                  # Short-lived feature/task specs
+    │   ├── active/             # In-progress specs
+    │   ├── done/               # Completed (archived)
+    │   ├── future/             # Planned
+    │   ├── paused/             # On hold
+    │   ├── template-plan-spec.md
+    │   ├── template-implementation-spec.md
+    │   ├── template-validation-spec.md
+    │   └── template-bugfix.md
+    ├── architecture/           # Long-lived system design docs
+    │   ├── current/
+    │   ├── archive/
+    │   └── template-architecture.md
+    └── research/               # Long-lived research and investigations
+        ├── current/
+        ├── archive/
+        └── template-research-brief.md
+```
 
 ### General Docs: Rules Example
 
