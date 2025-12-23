@@ -51,6 +51,25 @@ bd doctor       # Check installation health
 bd doctor --fix # Fix any setup issues
 ```
 
+**Git merge driver configuration (required for each clone):**
+
+The `.gitattributes` file configures beads JSONL files to use a custom merge driver,
+but the driver must be registered in your local git config. Without this, git merge
+conflicts won't be auto-resolved. Run this after cloning:
+
+```bash
+git config merge.beads.driver "bd merge %A %O %A %B"
+git config merge.beads.name "bd JSONL merge driver"
+```
+
+This enables intelligent 3-way merging of `.beads/issues.jsonl`:
+- Matches issues by identity (id + created_at + created_by)
+- Applies field-specific merge rules (e.g., newer timestamps win)
+- Combines dependencies and labels
+- Outputs conflict markers only for unresolvable conflicts
+
+Verify with: `bd doctor | grep "Git Merge Driver"` (should show ✓)
+
 **SQLite WAL mode errors (common in containers/VMs):**
 
 If you see `failed to enable WAL mode: sqlite3: locking protocol`, use JSONL-only mode:
