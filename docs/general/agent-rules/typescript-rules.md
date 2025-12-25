@@ -233,12 +233,10 @@ alwaysApply: true
 
 ## Imports and Exports
 
-- **Prefer static imports over dynamic imports:** Dynamic `import()` calls are not
-  supported in many runtime environments.
-  ALWAYS use static imports at the top of the file unless dynamic imports are explicitly
-  required and known to be supported.
-  Also do not use inline imports like import('../path').Type in function parameters.
-  Import types at the top of the file.
+- **Avoid dynamic imports!** Prefer static imports over dynamic imports.
+  Dynamic `import()` calls are not supported in many runtime environments and make code
+  less readable. ALWAYS use static imports at the top of the file unless dynamic imports
+  are explicitly required and known to be supported.
 
   ```ts
   // BAD: Dynamic import (not supported in many runtimes)
@@ -255,17 +253,54 @@ alwaysApply: true
   };
   ```
 
-- If a function or type is moved from one file to another, ALWAYS update all imports in
-  the codebase to the location.
-  DO NOT re-export types a type or other value from its old location:
+- **Do not use inline imports** like `import('../path').Type` in function parameters.
+  Import types at the top of the file.
+  Again, this is better for readability and consistency.
+
+- **Avoid re-exporting functions or types** unless explicitly done for consumers of a
+  library (such as a top-level `index.ts`).
+
+  - If a function or type is moved from one file to another, ALWAYS update all imports
+    in the codebase to the location.
+    DO NOT re-export types a type or other value from its old location:
+
+    ```ts
+    // BAD: Do not re-export imports for re-import elsewhere:
+    export { backtestStep } from './experimentExecution';
+    
+    // GOOD: Import directly from the new location:
+    import { backtestStep } from './experimentExecution';
+    ```
+
+- **Barrel files:** The rules differ for libraries vs applications.
+
+  **For libraries:** Use exactly ONE barrel file — the root `index.ts` that defines the
+  public API. This is essential for consumers who `import { X } from 'your-library'`. Do
+  NOT create module-level barrels (like `utils/index.ts` or `harness/index.ts`).
+  Internal code should import directly from source files.
 
   ```ts
-  // BAD: Do not re-export imports for re-import elsewhere:
-  export { backtestStep } from './experimentExecution';
+  // BAD: Module-level barrel that just re-exports siblings
+  // src/harness/index.ts
+  export { FormHarness } from './harness.js';
+  export { MockAgent } from './mockAgent.js';
   
-  // GOOD: Import directly from the new location:
-  import { backtestStep } from './experimentExecution';
+  // BAD: Importing through module barrel
+  import { FormHarness } from '../harness';
+  
+  // GOOD: Import directly from source file
+  import { FormHarness } from '../harness/harness.js';
+  
+  // GOOD: Root index.ts for public API is fine
+  // src/index.ts (package entry point)
+  export { FormHarness } from './harness/harness.js';
   ```
+
+  **For applications:** Avoid barrel files entirely.
+  Apps have no public API, so barrels only add indirection.
+  Import directly from source files throughout.
+  If you find yourself wanting a barrel for “convenience,” that’s often a sign of
+  incomplete refactors or poor module structure.
 
 ## Exceptions
 
