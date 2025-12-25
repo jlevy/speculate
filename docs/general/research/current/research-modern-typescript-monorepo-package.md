@@ -35,6 +35,8 @@
 | **changesets/action** | v1 | [github.com/changesets/action](https://github.com/changesets/action) |
 | **lefthook** | ^1.11.0 | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases) |
 | **npm-check-updates** | ^19.0.0 | [npmjs.com/package/npm-check-updates](https://www.npmjs.com/package/npm-check-updates) |
+| **prettier** | ^3.0.0 | [github.com/prettier/prettier/releases](https://github.com/prettier/prettier/releases) |
+| **eslint-config-prettier** | ^10.0.0 | [github.com/prettier/eslint-config-prettier/releases](https://github.com/prettier/eslint-config-prettier/releases) |
 
 ### Reminders When Updating
 
@@ -675,8 +677,8 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm typecheck
+      - run: pnpm format:check
+      - run: pnpm lint:check
       - run: pnpm build
       - run: pnpm publint
       - run: pnpm test
@@ -762,7 +764,108 @@ jobs:
 
 * * *
 
-### 9. Git Hooks & Local Validation
+### 9. Code Formatting
+
+#### Prettier
+
+**Status**: Essential
+
+**Details**:
+
+Prettier provides consistent code formatting across the project.
+Configure it once and let it handle all formatting decisions automatically.
+
+**Installation**:
+```bash
+pnpm add -Dw prettier eslint-config-prettier
+```
+
+**`.prettierrc`**:
+```json
+{
+  "$schema": "https://json.schemastore.org/prettierrc",
+  "printWidth": 100,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "semi": true,
+  "arrowParens": "always",
+  "tabWidth": 2,
+  "useTabs": false
+}
+```
+
+**`.prettierignore`**:
+```
+dist
+node_modules
+pnpm-lock.yaml
+*.min.js
+*.min.css
+coverage
+```
+
+**Key configuration choices**:
+
+| Option | Recommended | Rationale |
+| --- | --- | --- |
+| `printWidth` | 100 | Wider than default 80; fits modern screens |
+| `singleQuote` | true | Common in JS ecosystem, less visual noise |
+| `trailingComma` | "all" | Cleaner diffs, easier reordering |
+| `semi` | true | Explicit; avoids ASI edge cases |
+
+**Assessment**: Prettier eliminates formatting debates and ensures consistency.
+Use `eslint-config-prettier` to disable ESLint rules that conflict with Prettier.
+
+**References**:
+
+- [Prettier Documentation](https://prettier.io/docs/)
+
+- [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier)
+
+* * *
+
+#### Format Scripts Pattern
+
+**Status**: Recommended
+
+**Details**:
+
+Structure format and lint scripts to support both auto-fix and CI verification modes.
+
+**Root `package.json` scripts**:
+```json
+{
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --fix && pnpm typecheck",
+    "lint:check": "pnpm typecheck && eslint . --max-warnings 0",
+    "typecheck": "tsc -b",
+    "build": "pnpm format && pnpm lint:check && <build-command>"
+  }
+}
+```
+
+**Script purposes**:
+
+| Script | Purpose | When to use |
+| --- | --- | --- |
+| `format` | Auto-format all files | Local development |
+| `format:check` | Verify formatting (no changes) | CI |
+| `lint` | Lint with auto-fix | Local development |
+| `lint:check` | Lint without fix, zero warnings | CI, pre-build |
+| `build` | Format, lint, then build | Production builds |
+
+**Key insight**: The `build` script runs `format` before `lint:check`. This ensures
+formatting is applied before linting, catching any formatting issues that would fail the
+lint check.
+
+**Assessment**: Separating `--fix` variants (for local use) from `--check` variants (for
+CI) provides the best developer experience while ensuring CI catches issues.
+
+* * *
+
+### 10. Git Hooks & Local Validation
 
 #### Lefthook
 
@@ -975,7 +1078,7 @@ Never skip CI because hooks passed—hooks can be bypassed with `--no-verify`.
 
 * * *
 
-### 10. Dependency Upgrade Management
+### 11. Dependency Upgrade Management
 
 #### npm-check-updates (ncu)
 
@@ -1125,7 +1228,7 @@ upgrades. Options:
 
 * * *
 
-### 11. Private Package Distribution
+### 12. Private Package Distribution
 
 #### Option A: GitHub Packages (Recommended)
 
@@ -1328,6 +1431,14 @@ experience.
     `upgrade:major` scripts to make dependency updates consistent and safe.
     Separate minor/patch from major upgrades.
 
+16. **Separate format and lint script variants**: Provide `format`/`format:check` and
+    `lint`/`lint:check` scripts.
+    Use `--fix` variants for local development and `--check`/zero-warnings variants for
+    CI.
+
+17. **Run format before lint in builds**: The `build` script should run `format` then
+    `lint:check` to ensure formatting is applied before linting.
+
 * * *
 
 ## Open Research Questions
@@ -1351,8 +1462,8 @@ experience.
 ### Summary
 
 Use a pnpm monorepo with tsdown for building, Changesets for versioning, publint for
-validation, lefthook for fast local git hooks, and npm-check-updates for structured
-dependency upgrades.
+validation, Prettier for code formatting, lefthook for fast local git hooks, and
+npm-check-updates for structured dependency upgrades.
 Structure code internally for future splits while exposing a stable API through subpath
 exports.
 Start with GitHub Packages for private distribution, then transition to npm when
@@ -1368,15 +1479,17 @@ ready for public release.
 
 4. **Add Changesets** for version management
 
-5. **Configure lefthook** for pre-commit (format, lint, typecheck) and pre-push (tests)
+5. **Configure Prettier** with eslint-config-prettier for consistent formatting
 
-6. **Add upgrade scripts** for structured dependency management
+6. **Configure lefthook** for pre-commit (format, lint, typecheck) and pre-push (tests)
 
-7. **Configure CI** with lint, typecheck, build, publint, and test
+7. **Add upgrade scripts** for structured dependency management
 
-8. **Configure release workflow** with Changesets GitHub Action
+8. **Configure CI** with format:check, lint:check, typecheck, build, publint, and test
 
-9. **Validate with publint** before every release
+9. **Configure release workflow** with Changesets GitHub Action
+
+10. **Validate with publint** before every release
 
 **Rationale**:
 
@@ -1416,6 +1529,8 @@ ready for public release.
 - [tsdown Documentation](https://tsdown.dev/)
 
 - [publint Documentation](https://publint.dev/docs/)
+
+- [Prettier Documentation](https://prettier.io/docs/)
 
 - [Changesets GitHub](https://github.com/changesets/changesets)
 
@@ -1542,8 +1657,10 @@ ready for public release.
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "publint": "pnpm -r publint",
-    "lint": "eslint .",
-    "format": "prettier -w .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --fix && pnpm typecheck",
+    "lint:check": "pnpm typecheck && eslint . --max-warnings 0",
     "prepare": "lefthook install",
     "changeset": "changeset",
     "version-packages": "changeset version",
@@ -1557,6 +1674,7 @@ ready for public release.
     "@changesets/changelog-github": "^0.5.0",
     "@eslint/js": "^9.0.0",
     "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.0.0",
     "lefthook": "^1.11.0",
     "npm-check-updates": "^19.0.0",
     "prettier": "^3.0.0",
