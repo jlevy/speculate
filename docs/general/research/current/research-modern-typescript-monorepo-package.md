@@ -33,7 +33,7 @@
 | **actions/setup-node** | v6 | [github.com/actions/setup-node/releases](https://github.com/actions/setup-node/releases) |
 | **pnpm/action-setup** | v4 | [github.com/pnpm/action-setup/releases](https://github.com/pnpm/action-setup/releases) |
 | **changesets/action** | v1 | [github.com/changesets/action](https://github.com/changesets/action) |
-| **lefthook** | ^1.11.0 | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases) |
+| **lefthook** | ^2.0.0 | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases) |
 | **npm-check-updates** | ^19.0.0 | [npmjs.com/package/npm-check-updates](https://www.npmjs.com/package/npm-check-updates) |
 | **prettier** | ^3.0.0 | [github.com/prettier/prettier/releases](https://github.com/prettier/prettier/releases) |
 | **eslint-config-prettier** | ^10.0.0 | [github.com/prettier/eslint-config-prettier/releases](https://github.com/prettier/eslint-config-prettier/releases) |
@@ -838,7 +838,7 @@ Structure format and lint scripts to support both auto-fix and CI verification m
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint . --fix && pnpm typecheck",
+    "lint": "eslint . --fix && pnpm typecheck && eslint . --max-warnings 0",
     "lint:check": "pnpm typecheck && eslint . --max-warnings 0",
     "typecheck": "tsc -b",
     "build": "pnpm format && pnpm lint:check && <build-command>"
@@ -852,9 +852,13 @@ Structure format and lint scripts to support both auto-fix and CI verification m
 | --- | --- | --- |
 | `format` | Auto-format all files | Local development |
 | `format:check` | Verify formatting (no changes) | CI |
-| `lint` | Lint with auto-fix | Local development |
+| `lint` | Lint with auto-fix, then verify zero warnings | Local development |
 | `lint:check` | Lint without fix, zero warnings | CI, pre-build |
 | `build` | Format, lint, then build | Production builds |
+
+**Key insight**: The `lint` script runs ESLint twice: first with `--fix` to auto-fix
+issues, then again with `--max-warnings 0` to catch any unfixable warnings.
+This ensures auto-fix doesn’t mask problems that require manual attention.
 
 **Key insight**: The `build` script runs `format` before `lint:check`. This ensures
 formatting is applied before linting, catching any formatting issues that would fail the
@@ -1659,7 +1663,7 @@ ready for public release.
     "publint": "pnpm -r publint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint . --fix && pnpm typecheck",
+    "lint": "eslint . --fix && pnpm typecheck && eslint . --max-warnings 0",
     "lint:check": "pnpm typecheck && eslint . --max-warnings 0",
     "prepare": "lefthook install",
     "changeset": "changeset",
@@ -1675,7 +1679,7 @@ ready for public release.
     "@eslint/js": "^9.0.0",
     "eslint": "^9.0.0",
     "eslint-config-prettier": "^10.0.0",
-    "lefthook": "^1.11.0",
+    "lefthook": "^2.0.0",
     "npm-check-updates": "^19.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.0.0",
@@ -1694,10 +1698,12 @@ For projects just getting started, a minimal configuration:
 // eslint.config.js
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
+import prettier from "eslint-config-prettier";
 
 export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  prettier, // Must be last to override conflicting rules
   {
     ignores: ["**/dist/**", "**/node_modules/**", "**/.pnpm-store/**"],
   },
@@ -1713,6 +1719,7 @@ This catches more bugs but requires tsconfig integration:
 // eslint.config.js
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
+import prettier from "eslint-config-prettier";
 
 // Type-aware ESLint configuration using flat config.
 // Uses TypeScript's project service for precise, cross-project type information.
@@ -1761,6 +1768,9 @@ export default [
   // Type-aware TypeScript rules
   ...typedRecommended,
   ...typedStylistic,
+
+  // Prettier config must be last to override conflicting rules
+  prettier,
 
   // TypeScript-specific rules
   {
