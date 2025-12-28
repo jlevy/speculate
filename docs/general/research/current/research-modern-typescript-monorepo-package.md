@@ -1416,31 +1416,50 @@ experience.
 10. **Keep the monorepo root private**: The root `package.json` should have `"private":
     true` and only contain workspace tooling.
 
-11. **Use type-aware ESLint**: Configure `recommendedTypeChecked` for comprehensive bug
+11. **Use tsx for development CLI scripts**: For packages with CLIs, add a root script
+    that runs the TypeScript source directly via `tsx`. This eliminates the “forgot to
+    build” problem during development.
+    Reserve the built binary (`dist/bin.mjs`) for pre-publish testing and actual
+    installed usage.
+
+    ```json
+    {
+      "scripts": {
+        "mycli": "npx tsx packages/mycli/src/cli/bin.ts",
+        "mycli:bin": "node packages/mycli/dist/bin.mjs"
+      }
+    }
+    ```
+
+    - `pnpm mycli` — Development default, always current
+
+    - `pnpm mycli:bin` — Tests the built output (requires `pnpm build` first)
+
+12. **Use type-aware ESLint**: Configure `recommendedTypeChecked` for comprehensive bug
     detection, especially promise safety rules.
     See Appendix C for detailed configuration.
 
-12. **Enforce code style consistency**: Use `curly: 'all'` and `brace-style: '1tbs'` to
+13. **Enforce code style consistency**: Use `curly: 'all'` and `brace-style: '1tbs'` to
     prevent subtle bugs and improve readability.
 
-13. **Use fast pre-commit hooks**: Run formatting and linting with auto-fix on staged
+14. **Use fast pre-commit hooks**: Run formatting and linting with auto-fix on staged
     files only. Target 2-5 seconds total.
     Use lefthook for better monorepo support.
 
-14. **Cache test results by commit hash**: In pre-push hooks, skip test runs if the
+15. **Cache test results by commit hash**: In pre-push hooks, skip test runs if the
     current commit has already passed tests.
     This makes repeated pushes instant.
 
-15. **Use structured upgrade scripts**: Add `upgrade:check`, `upgrade`, and
+16. **Use structured upgrade scripts**: Add `upgrade:check`, `upgrade`, and
     `upgrade:major` scripts to make dependency updates consistent and safe.
     Separate minor/patch from major upgrades.
 
-16. **Separate format and lint script variants**: Provide `format`/`format:check` and
+17. **Separate format and lint script variants**: Provide `format`/`format:check` and
     `lint`/`lint:check` scripts.
     Use `--fix` variants for local development and `--check`/zero-warnings variants for
     CI.
 
-17. **Run format before lint in builds**: The `build` script should run `format` then
+18. **Run format before lint in builds**: The `build` script should run `format` then
     `lint:check` to ensure formatting is applied before linting.
 
 * * *
