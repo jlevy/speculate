@@ -836,8 +836,8 @@ Structure format and lint scripts to support both auto-fix and CI verification m
 ```json
 {
   "scripts": {
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write --log-level warn .",
+    "format:check": "prettier --check --log-level warn .",
     "lint": "eslint . --fix && pnpm typecheck && eslint . --max-warnings 0",
     "lint:check": "pnpm typecheck && eslint . --max-warnings 0",
     "typecheck": "tsc -b",
@@ -850,8 +850,8 @@ Structure format and lint scripts to support both auto-fix and CI verification m
 
 | Script | Purpose | When to use |
 | --- | --- | --- |
-| `format` | Auto-format all files | Local development |
-| `format:check` | Verify formatting (no changes) | CI |
+| `format` | Auto-format changed files (quiet for unchanged) | Local development |
+| `format:check` | Verify formatting (quiet for valid files) | CI |
 | `lint` | Lint with auto-fix, then verify zero warnings | Local development |
 | `lint:check` | Lint without fix, zero warnings | CI, pre-build |
 | `build` | Format, lint, then build | Production builds |
@@ -859,6 +859,11 @@ Structure format and lint scripts to support both auto-fix and CI verification m
 **Key insight**: The `lint` script runs ESLint twice: first with `--fix` to auto-fix
 issues, then again with `--max-warnings 0` to catch any unfixable warnings.
 This ensures auto-fix doesn’t mask problems that require manual attention.
+
+**Key insight**: Using `--log-level warn` with Prettier suppresses the verbose output
+that lists every unchanged file.
+This keeps output clean—only files that were actually changed (or have issues in check
+mode) are shown.
 
 **Key insight**: The `build` script runs `format` before `lint:check`. This ensures
 formatting is applied before linting, catching any formatting issues that would fail the
@@ -1416,50 +1421,31 @@ experience.
 10. **Keep the monorepo root private**: The root `package.json` should have `"private":
     true` and only contain workspace tooling.
 
-11. **Use tsx for development CLI scripts**: For packages with CLIs, add a root script
-    that runs the TypeScript source directly via `tsx`. This eliminates the “forgot to
-    build” problem during development.
-    Reserve the built binary (`dist/bin.mjs`) for pre-publish testing and actual
-    installed usage.
-
-    ```json
-    {
-      "scripts": {
-        "mycli": "npx tsx packages/mycli/src/cli/bin.ts",
-        "mycli:bin": "node packages/mycli/dist/bin.mjs"
-      }
-    }
-    ```
-
-    - `pnpm mycli` — Development default, always current
-
-    - `pnpm mycli:bin` — Tests the built output (requires `pnpm build` first)
-
-12. **Use type-aware ESLint**: Configure `recommendedTypeChecked` for comprehensive bug
+11. **Use type-aware ESLint**: Configure `recommendedTypeChecked` for comprehensive bug
     detection, especially promise safety rules.
     See Appendix C for detailed configuration.
 
-13. **Enforce code style consistency**: Use `curly: 'all'` and `brace-style: '1tbs'` to
+12. **Enforce code style consistency**: Use `curly: 'all'` and `brace-style: '1tbs'` to
     prevent subtle bugs and improve readability.
 
-14. **Use fast pre-commit hooks**: Run formatting and linting with auto-fix on staged
+13. **Use fast pre-commit hooks**: Run formatting and linting with auto-fix on staged
     files only. Target 2-5 seconds total.
     Use lefthook for better monorepo support.
 
-15. **Cache test results by commit hash**: In pre-push hooks, skip test runs if the
+14. **Cache test results by commit hash**: In pre-push hooks, skip test runs if the
     current commit has already passed tests.
     This makes repeated pushes instant.
 
-16. **Use structured upgrade scripts**: Add `upgrade:check`, `upgrade`, and
+15. **Use structured upgrade scripts**: Add `upgrade:check`, `upgrade`, and
     `upgrade:major` scripts to make dependency updates consistent and safe.
     Separate minor/patch from major upgrades.
 
-17. **Separate format and lint script variants**: Provide `format`/`format:check` and
+16. **Separate format and lint script variants**: Provide `format`/`format:check` and
     `lint`/`lint:check` scripts.
     Use `--fix` variants for local development and `--check`/zero-warnings variants for
     CI.
 
-18. **Run format before lint in builds**: The `build` script should run `format` then
+17. **Run format before lint in builds**: The `build` script should run `format` then
     `lint:check` to ensure formatting is applied before linting.
 
 * * *
@@ -1680,8 +1666,8 @@ ready for public release.
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "publint": "pnpm -r publint",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write --log-level warn .",
+    "format:check": "prettier --check --log-level warn .",
     "lint": "eslint . --fix && pnpm typecheck && eslint . --max-warnings 0",
     "lint:check": "pnpm typecheck && eslint . --max-warnings 0",
     "prepare": "lefthook install",
@@ -2113,7 +2099,7 @@ pre-commit:
     format-core:
       root: "packages/core/"
       glob: "*.{ts,tsx}"
-      run: npx prettier --write {staged_files}
+      run: npx prettier --write --log-level warn {staged_files}
       stage_fixed: true
 
     lint-core:
