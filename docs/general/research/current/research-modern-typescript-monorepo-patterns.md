@@ -1,4 +1,4 @@
-# Research Brief: Modern TypeScript Monorepo Package Architecture
+# Research Brief: Modern TypeScript Monorepo Architecture Patterns
 
 **Last Updated**: 2025-12-23 (Added dependency upgrade management with ncu)
 
@@ -643,6 +643,105 @@ It integrates seamlessly with pnpm and GitHub Actions.
 - [Changesets GitHub repository](https://github.com/changesets/changesets)
 
 - [Frontend Handbook: Changesets](https://infinum.com/handbook/frontend/changesets)
+
+* * *
+
+#### Dynamic Git-Based Versioning
+
+**Status**: Recommended for dev builds
+
+**Details**:
+
+While Changesets handles release versioning, development builds benefit from dynamic
+git-based version strings.
+This provides traceability during development without manual version bumps.
+
+**Format**: `X.Y.Z-dev.N.hash`
+
+| State | Format | Example |
+| --- | --- | --- |
+| On tag | `X.Y.Z` | `1.2.3` |
+| After tag | `X.Y.Z-dev.N.hash` | `1.2.4-dev.12.a1b2c3d` |
+| Dirty working dir | `X.Y.Z-dev.N.hash-dirty` | `1.2.4-dev.12.a1b2c3d-dirty` |
+| No tags | `0.0.0-dev.0.hash` | `0.0.0-dev.0.a1b2c3d` |
+
+**Key design decisions**:
+
+1. **Bump patch for dev versions**: Ensures correct semver sorting—dev versions sort
+   *before* the next release, not after the current one
+
+2. **Hash in pre-release, not metadata**: npm strips build metadata (`+hash`), so embed
+   the hash in the pre-release identifier (`-dev.N.hash`)
+
+3. **Dirty marker**: Identifies uncommitted changes during development
+
+**Implementation in tsdown.config.ts**:
+
+```ts
+import { execSync } from 'node:child_process';
+import { defineConfig } from 'tsdown';
+import pkg from './package.json' with { type: 'json' };
+
+function getGitVersion(): string {
+  try {
+    const git = (args: string) =>
+      execSync(`git ${args}`, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+
+    const tag = git('describe --tags --abbrev=0');
+    const tagVersion = tag.replace(/^v/, '');
+    const [major, minor, patch] = tagVersion.split('.').map(Number);
+    const commitsSinceTag = parseInt(git(`rev-list ${tag}..HEAD --count`), 10);
+    const hash = git('rev-parse --short=7 HEAD');
+
+    let dirty = false;
+    try {
+      git('diff --quiet');
+      git('diff --cached --quiet');
+    } catch {
+      dirty = true;
+    }
+
+    if (commitsSinceTag === 0 && !dirty) {
+      return tagVersion;
+    }
+
+    const bumpedPatch = (patch ?? 0) + 1;
+    const suffix = dirty ? `${hash}-dirty` : hash;
+    return `${major}.${minor}.${bumpedPatch}-dev.${commitsSinceTag}.${suffix}`;
+  } catch {
+    return pkg.version;
+  }
+}
+
+export default defineConfig({
+  // ...
+  define: {
+    __VERSION__: JSON.stringify(getGitVersion()),
+  },
+});
+```
+
+**Library usage**:
+
+```ts
+// src/index.ts
+declare const __VERSION__: string;
+export const VERSION: string =
+  typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'development';
+```
+
+**Comparison with Python (uv-dynamic-versioning)**:
+
+| Aspect | npm (this approach) | Python (PEP 440) |
+| --- | --- | --- |
+| Format | `1.2.4-dev.12.a1b2c3d` | `1.2.4.dev12+a1b2c3d` |
+| Metadata handling | In pre-release (preserved) | Local version `+` (may be stripped) |
+| Sorting | Standard semver | PEP 440 compliant |
+| Configuration | In bundler config | In `pyproject.toml` |
+
+**Assessment**: Dynamic versioning complements Changesets—use Changesets for releases
+and git-based versioning for development builds.
+This provides full traceability without manual intervention.
 
 * * *
 
@@ -1358,6 +1457,190 @@ experience.
 
 * * *
 
+### 13. Library/CLI Hybrid Packages
+
+#### Node-Free Core Pattern
+
+**Status**: Recommended
+
+**Details**:
+
+When building a package that functions as both a library and a CLI tool, **isolate all
+Node.js dependencies to CLI-only code**. This allows the core library to be used in
+non-Node environments (browsers, edge runtimes, Cloudflare Workers, Convex, etc.).
+
+Node.js-specific imports like `node:path`, `node:fs`, or `node:module` will cause
+bundler errors or runtime failures in non-Node environments.
+Even if only the CLI uses these imports, if they’re in shared code, the entire library
+becomes Node-dependent.
+
+**Directory Structure for Isolation**:
+
+Keep CLI code in a dedicated subdirectory:
+
+```
+src/
+├── index.ts           # Library entry point (NO node: imports)
+├── settings.ts        # Configuration constants (NO node: imports)
+├── engine/            # Core library code (NO node: imports)
+├── cli/               # CLI-only code (node: imports OK here)
+│   ├── cli.ts         # CLI entry point
+│   ├── commands/      # Command implementations
+│   └── lib/           # CLI utilities (path resolution, etc.)
+└── integrations/      # Optional integrations (NO node: imports)
+```
+
+**Assessment**: This pattern is essential for libraries targeting multiple runtimes.
+The directory structure creates clear boundaries that are easy to enforce with automated
+tests.
+
+* * *
+
+#### Pattern: Move Node.js Utilities to CLI
+
+**Status**: Recommended
+
+**Details**:
+
+Configuration constants belong in node-free files; functions that use Node.js APIs
+belong in CLI-specific code:
+
+```ts
+// BAD: Node.js import in shared settings
+// src/settings.ts
+import { resolve } from 'node:path';
+
+export const DEFAULT_OUTPUT_DIR = './output';
+
+export function getOutputDir(override?: string): string {
+  return resolve(process.cwd(), override ?? DEFAULT_OUTPUT_DIR);
+}
+
+// GOOD: Constant in settings, function in CLI
+// src/settings.ts (node-free)
+export const DEFAULT_OUTPUT_DIR = './output';
+
+// src/cli/lib/paths.ts (node: imports OK)
+import { resolve } from 'node:path';
+import { DEFAULT_OUTPUT_DIR } from '../../settings.js';
+
+export { DEFAULT_OUTPUT_DIR };  // Re-export for CLI convenience
+
+export function getOutputDir(override?: string): string {
+  return resolve(process.cwd(), override ?? DEFAULT_OUTPUT_DIR);
+}
+```
+
+**Assessment**: This pattern keeps the core library portable while providing full
+Node.js functionality in CLI contexts.
+
+* * *
+
+#### Pattern: Build-Time Constants
+
+**Status**: Recommended
+
+**Details**:
+
+For values that need Node.js at build time (like reading `package.json`), use bundler
+`define` options to inject them as compile-time constants:
+
+```ts
+// tsdown.config.ts / esbuild / rollup config
+import pkg from './package.json' with { type: 'json' };
+
+export default {
+  define: {
+    __VERSION__: JSON.stringify(pkg.version),
+  },
+};
+
+// src/index.ts (node-free)
+declare const __VERSION__: string;
+
+export const VERSION: string =
+  typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'development';
+```
+
+**Assessment**: Build-time injection eliminates runtime Node.js dependencies for values
+that are constant at build time.
+This is cleaner than dynamic requires or filesystem reads.
+
+* * *
+
+#### Guard Tests for Node-Free Core
+
+**Status**: Strongly Recommended
+
+**Details**:
+
+Add automated tests to prevent Node.js dependency leaks:
+
+```ts
+// tests/node-free-core.test.ts
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+
+const SRC_DIR = 'src';
+const NODE_ALLOWED_DIRS = ['cli'];  // Only CLI can use node:
+const NODE_IMPORT_PATTERN = /from\s+['"]node:/g;
+
+function getAllTsFiles(dir: string): string[] { /* recursive scan */ }
+
+describe('Node-free core library', () => {
+  it('source files outside cli/ should not import from node:', () => {
+    const violations: string[] = [];
+
+    for (const file of getAllTsFiles(SRC_DIR)) {
+      const rel = relative(SRC_DIR, file);
+      if (NODE_ALLOWED_DIRS.some(d => rel.startsWith(d + '/'))) continue;
+
+      const content = readFileSync(file, 'utf-8');
+      if (NODE_IMPORT_PATTERN.test(content)) {
+        violations.push(rel);
+      }
+    }
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('dist/index.mjs should not reference node: modules', () => {
+    const content = readFileSync('dist/index.mjs', 'utf-8');
+    expect(content).not.toMatch(NODE_IMPORT_PATTERN);
+  });
+});
+```
+
+**Assessment**: Guard tests catch accidental node: imports during development rather
+than discovering them when users try to use the library in browser/edge contexts.
+
+* * *
+
+#### Checklist for Library/CLI Packages
+
+**Status**: Best Practice
+
+**Checklist**:
+
+- [ ] Core library entry point (`index.ts`) has no `node:` imports
+
+- [ ] All `node:` imports are in `cli/` directory only
+
+- [ ] Configuration constants are in node-free files
+
+- [ ] Build-time values use bundler `define` injection
+
+- [ ] Guard tests prevent future regressions
+
+- [ ] Built output (`dist/*.mjs`) has no `node:` references
+
+**References**:
+
+- [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md) —
+  CLI-specific patterns using Commander.js, picocolors, and @clack/prompts
+
+* * *
+
 ## Comparative Analysis
 
 ### Build Tools Comparison
@@ -1447,6 +1730,11 @@ experience.
 
 17. **Run format before lint in builds**: The `build` script should run `format` then
     `lint:check` to ensure formatting is applied before linting.
+
+18. **Use dynamic git-based versioning**: Inject version at build time using
+    `X.Y.Z-dev.N.hash` format.
+    This provides traceability during development without manual version bumps.
+    See “Dynamic Git-Based Versioning” section for implementation.
 
 * * *
 
