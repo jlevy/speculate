@@ -177,29 +177,6 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
   console.log(colors.green(`⏰ Total time: ${totalTime}s`));
   ```
 
-## Development vs Built CLI
-
-For packages with CLIs, provide two root scripts to avoid the “forgot to build” problem:
-
-```json
-{
-  "scripts": {
-    "mycli": "npx tsx packages/mycli/src/cli/bin.ts",
-    "mycli:bin": "node packages/mycli/dist/bin.mjs"
-  }
-}
-```
-
-- **`pnpm mycli`** — Runs TypeScript source directly via `tsx`. Use this during
-  development—always current, no build step needed.
-
-- **`pnpm mycli:bin`** — Runs the built binary from `dist/`. Use this to verify the
-  published output works correctly before release.
-
-The `bin` entry in `package.json` (e.g., `"bin": { "mycli": "./dist/bin.mjs" }`) is only
-used when the package is installed via npm/pnpm.
-During development, always use the tsx-based script.
-
 ## Script Structure
 
 - **Use TypeScript for all CLI scripts:** Write scripts as `.ts` files with proper
@@ -329,7 +306,133 @@ seamlessly in local dev and in remote environments.
   - `QUIET_MODE` - suppress non-essential output
 
 - **Make scripts composable:** Design scripts to work well in pipelines and automation.
-  Consider how they’ll be used in CI/CD and shell scripts.
+  Consider how they'll be used in CI/CD and shell scripts.
+
+## Library/CLI Hybrid Packages
+
+When building a package that functions as both a library and a CLI tool, **isolate all
+Node.js dependencies to CLI-only code**. This allows the core library to be used in
+non-Node environments (browsers, edge runtimes, Cloudflare Workers, Convex, etc.).
+
+### Why This Matters
+
+Node.js-specific imports like `node:path`, `node:fs`, or `node:module` will cause bundler
+errors or runtime failures in non-Node environments. Even if only the CLI uses these
+imports, if they're in shared code, the entire library becomes Node-dependent.
+
+### Directory Structure for Isolation
+
+Keep CLI code in a dedicated subdirectory:
+
+```
+src/
+├── index.ts           # Library entry point (NO node: imports)
+├── settings.ts        # Configuration constants (NO node: imports)
+├── engine/            # Core library code (NO node: imports)
+├── cli/               # CLI-only code (node: imports OK here)
+│   ├── cli.ts         # CLI entry point
+│   ├── commands/      # Command implementations
+│   └── lib/           # CLI utilities (path resolution, etc.)
+└── integrations/      # Optional integrations (NO node: imports)
+```
+
+### Pattern: Move Node.js Utilities to CLI
+
+```ts
+// BAD: Node.js import in shared settings
+// src/settings.ts
+import { resolve } from 'node:path';
+
+export const DEFAULT_OUTPUT_DIR = './output';
+
+export function getOutputDir(override?: string): string {
+  return resolve(process.cwd(), override ?? DEFAULT_OUTPUT_DIR);
+}
+
+// GOOD: Constant in settings, function in CLI
+// src/settings.ts (node-free)
+export const DEFAULT_OUTPUT_DIR = './output';
+
+// src/cli/lib/paths.ts (node: imports OK)
+import { resolve } from 'node:path';
+import { DEFAULT_OUTPUT_DIR } from '../../settings.js';
+
+export { DEFAULT_OUTPUT_DIR };  // Re-export for CLI convenience
+
+export function getOutputDir(override?: string): string {
+  return resolve(process.cwd(), override ?? DEFAULT_OUTPUT_DIR);
+}
+```
+
+### Pattern: Build-Time Constants
+
+For values that need Node.js at build time (like reading `package.json`), use bundler
+`define` options to inject them as compile-time constants:
+
+```ts
+// tsdown.config.ts / esbuild / rollup config
+import pkg from './package.json' with { type: 'json' };
+
+export default {
+  define: {
+    __VERSION__: JSON.stringify(pkg.version),
+  },
+};
+
+// src/index.ts (node-free)
+declare const __VERSION__: string;
+
+export const VERSION: string =
+  typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'development';
+```
+
+### Guard Tests
+
+Add automated tests to prevent Node.js dependency leaks:
+
+```ts
+// tests/node-free-core.test.ts
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+
+const SRC_DIR = 'src';
+const NODE_ALLOWED_DIRS = ['cli'];  // Only CLI can use node:
+const NODE_IMPORT_PATTERN = /from\s+['"]node:/g;
+
+function getAllTsFiles(dir: string): string[] { /* recursive scan */ }
+
+describe('Node-free core library', () => {
+  it('source files outside cli/ should not import from node:', () => {
+    const violations: string[] = [];
+
+    for (const file of getAllTsFiles(SRC_DIR)) {
+      const rel = relative(SRC_DIR, file);
+      if (NODE_ALLOWED_DIRS.some(d => rel.startsWith(d + '/'))) continue;
+
+      const content = readFileSync(file, 'utf-8');
+      if (NODE_IMPORT_PATTERN.test(content)) {
+        violations.push(rel);
+      }
+    }
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('dist/index.mjs should not reference node: modules', () => {
+    const content = readFileSync('dist/index.mjs', 'utf-8');
+    expect(content).not.toMatch(NODE_IMPORT_PATTERN);
+  });
+});
+```
+
+### Checklist for Library/CLI Packages
+
+- [ ] Core library entry point (`index.ts`) has no `node:` imports
+- [ ] All `node:` imports are in `cli/` directory only
+- [ ] Configuration constants are in node-free files
+- [ ] Build-time values use bundler `define` injection
+- [ ] Guard tests prevent future regressions
+- [ ] Built output (`dist/*.mjs`) has no `node:` references
 
 ## Recommended Patterns
 
@@ -641,6 +744,41 @@ program
   .option('-d, --dry-run', 'Show what would be done')  // -d might conflict
   .option('-v, --verbose', 'Verbose output')           // -v used by --version
 ```
+
+### Show Help After Errors
+
+Configure Commander.js to display help after usage errors. This helps users understand
+what went wrong and how to correctly use the command:
+
+```ts
+// In program setup (affects all commands)
+const program = new Command()
+  .name('my-cli')
+  .showHelpAfterError()  // Show full help after errors
+  // ... other options
+
+// Or with a custom hint message (more concise)
+program.showHelpAfterError('(add --help for additional information)');
+```
+
+This provides a better user experience when required arguments are missing or options
+are invalid:
+
+```console
+$ my-cli research
+error: missing required argument 'input'
+
+Usage: my-cli research [options] <input>
+
+Fill a form using a web-search-enabled model
+
+Options:
+  --model <provider/model>  Model to use (required)
+  -h, --help                display help for command
+```
+
+When configured on the root program, this behavior propagates to all subcommands
+automatically.
 
 ### Stdout/Stderr Separation
 
