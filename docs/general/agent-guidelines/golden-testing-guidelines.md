@@ -52,6 +52,11 @@ The entire approach rests on the idea of modeling and using serialized sessions,
 checking them into your version control system as “golden” references and examining when
 and how they change.
 
+**Terminology note**: The industry uses “golden file tests,” “approval tests,” and
+“snapshot tests” for related ideas.
+We use “golden tests” to mean golden tests with full detailed session checks—capturing
+complete execution traces (not just final output) with explicit stable-field filtering.
+
 ### Transparent Box Testing
 
 Golden session testing is “transparent box” testing: you capture *every* meaningful
@@ -245,6 +250,10 @@ const paymentClient = mockMode === 'live'
 Development needs real behavior for validation (live).
 The same tests must run in both modes.
 
+**Hermeticity**: For full determinism, inject everything that varies—clocks, random
+generators, network, database sequences.
+If a value can differ between runs, it must be controlled or filtered.
+
 ### 4. Build CLI for Token-Efficient Agent Testing
 
 Build a CLI that runs scenarios and produces structured YAML output.
@@ -297,25 +306,34 @@ structures should power:
 - GUI applications
 
 ```
-┌─────────────┐     ┌─────────────┐  
+┌─────────────┐     ┌─────────────┐
 │   Web UI    │     │   CLI       │
-└──────┬──────┘     └──────┬──────┘     
-       │                   │                   │
-       └───────────────────┼
-                           │
-                    ┌──────▼──────┐
-                    │   Most of   │
-                    │   the code  │
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐     ┌─────────────┐
-                    │   Session   │     │   Tests     │
-                    │   logs      │     └─────────────┘
-                    └─────────────┘
+└──────┬──────┘     └──────┬──────┘
+       │                   │
+       └─────────┬─────────┘
+                 │
+          ┌──────▼──────┐
+          │   Shared    │
+          │   Codebase  │
+          └──────┬──────┘
+                 │ writes
+                 ▼
+          ┌─────────────┐          ┌─────────────┐
+          │   Session   │          │   Golden    │
+          │   Files     │◄─────────│   Files     │
+          │  (actual)   │  compare │   (in git)  │
+          └─────────────┘          └──────┬──────┘
+                                          │
+                                   ┌──────▼──────┐
+                                   │   Tests     │
+                                   │  (fail if   │
+                                   │   differ)   │
+                                   └─────────────┘
 ```
 
-**Why**: When UI flows produce the same event streams as CLI commands, you can test
+**Why**: When UI and CLI share the same codebase that emits session events, you can test
 complex UI logic without browser automation.
+Tests compare actual session output against committed golden files and fail on any diff.
 
 ### 6. Design for Fast CI
 
@@ -395,11 +413,13 @@ They deserve the same review rigor as code.
 
 - Do keep scenarios few, representative, and fast.
 
-- Do find ways to log text fields that matter, even if they aer long: consider
-  truncating after a length or truncating in the middle if they are long.
-  Or use short hashes.
+- Do find ways to log text fields that matter, even if they are long: consider
+  truncating after a length or truncating in the middle of a long string, so you can see
+  part of it for quick debugging.
+  Or use short hashes of the value.
 
-- Don’t depend on real clocks, random, network, or database in CI.
+- Don’t depend on real clocks, random, network, or database in CI—inject mocks/fixtures
+  for full hermeticity.
 
 - Don’t hide differences with overly broad placeholders; prefer precise normalization.
 
@@ -468,6 +488,8 @@ When implementing golden testing for a new project:
 
 - [ ] Add `test:golden` and `test:golden --update` scripts
 
+- [ ] Be sure to check CI fails due to golden test failures on unexpected golden diffs
+
 - [ ] Document the session review workflow for the team
 
 * * *
@@ -495,11 +517,25 @@ When implementing golden testing for a new project:
 
 - Feathers, Michael. *Working Effectively with Legacy Code*. Prentice Hall, 2004.
 
+- Mitchell Hashimoto, “Testing with Golden Files”:
+  https://mitchellh.com/writing/golden-files
+
 - ApprovalTests: https://approvaltests.com/
 
 - Jest Snapshot Testing: https://jestjs.io/docs/snapshot-testing
 
+- Go “testdata/” convention: https://pkg.go.dev/cmd/go#hdr-Test_packages
+
+- Bazel diff-based golden tests:
+  https://bazelbuild.github.io/rules_testing/overview.html
+
 - VCR (Ruby): https://github.com/vcr/vcr
+
+- vcrpy (Python): https://vcrpy.readthedocs.io/
+
+- PollyJS (Netflix): https://netflix.github.io/pollyjs/
+
+- WireMock (service virtualization): https://wiremock.org/docs/record-playback/
 
 - insta (Rust): https://github.com/mitsuhiko/insta
 
