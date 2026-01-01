@@ -24,10 +24,31 @@
 
 - Keep scenarios few but end-to-end; tests must run fast in CI (<100ms each).
 
+- Prefer many small artifacts (shard by scenario/phase) over monolithic traces.
+
+- Layer domain-focused assertions alongside raw diffs for critical invariants.
+
 - Review and commit session files with code; treat them as behavioral specs.
 
+**Why this approach**:
+
+## When to Use Golden Tests
+
 When not to use: if output is trivially stable and unit tests are enough, use snapshots
-or unit tests only.
+or unit tests only. Golden session testing excels for complex systems where writing and
+maintaining hundreds of unit or integration tests is burdensome, even for coding agents.
+Traditional unit tests struggle to capture the full behavior of systems with many
+interacting components, non-deterministic outputs, and complex state transitions.
+Session-level testing provides complete visibility into what the system actually does
+*inside and outside* both when it conforms and when it changes.
+
+### Terminology Note
+
+The industry uses “golden file tests,” “approval tests,” “snapshot tests,” and
+“characterization tests” for related ideas.
+We use “golden tests” or “golden session tests” to mean tests with full detailed session
+checks—capturing complete execution traces (not just final output) with explicit
+stable-field filtering.
 
 ## Overview
 
@@ -51,11 +72,6 @@ developer workflows designed for modern AI-assisted development.
 The entire approach rests on the idea of modeling and using serialized sessions, then
 checking them into your version control system as “golden” references and examining when
 and how they change.
-
-**Terminology note**: The industry uses “golden file tests,” “approval tests,” and
-“snapshot tests” for related ideas.
-We use “golden tests” to mean golden tests with full detailed session checks—capturing
-complete execution traces (not just final output) with explicit stable-field filtering.
 
 ### Transparent Box Testing
 
@@ -150,16 +166,23 @@ before writing the session file.
 
 The core concepts have established precedents:
 
-- **Golden Master / Characterization Testing** (Michael Feathers, *Working Effectively
-  with Legacy Code*): Captures current behavior as a “golden master” reference for safe
-  refactoring of legacy systems.
+- **Golden Master Testing** (Nat Pryce & Steve Freeman): Captures current behavior as a
+  “golden master” reference for regression testing.
+  Records complete system behavior and filters out unstable/non-deterministic elements.
+
+- **Characterization Testing** (Michael Feathers, *Working Effectively with Legacy
+  Code*): Write tests characterizing current behavior before refactoring.
+  Helps understand complex systems through their outputs and protects against unintended
+  changes during refactoring.
+
+- **Approval Testing** (Llewellyn Falco, ApprovalTests): Focuses on whole-system
+  behavior verification with “scrubbers” to filter unstable values.
+  Uses diff tools for comparison and treats test output as living documentation.
 
 - **Snapshot Testing** (Jest, Vitest, Playwright): Serializes component output to files
   committed to version control.
-  Widely adopted in frontend development.
-
-- **Approval Testing** (Llewellyn Falco, ApprovalTests): Adds “scrubbers” to filter
-  unstable values and an explicit approval workflow.
+  Widely adopted in frontend development but often criticized for brittleness when
+  overused.
 
 - **VCR / Cassette Testing** (Ruby VCR, vcrpy, nock): Records HTTP interactions to
   “cassettes” for deterministic replay.
@@ -167,9 +190,13 @@ The core concepts have established precedents:
 - **Record-Replay Testing** (BitDive, iReplayer): Captures full execution traces for
   debugging and testing.
 
+- **Trace-Based Testing** (Academic): Uses execution traces for testing complex systems
+  including compilers, distributed systems, and state machines.
+
 Our approach combines these ideas: the behavioral specification of golden master
-testing, the scrubber concept from approval testing, the recording pattern from VCR, and
-the trace depth of record-replay—unified into a single methodology.
+testing, the characterization of complex systems from Feathers’ work, the scrubber
+concept from approval testing, the recording pattern from VCR, and the trace depth of
+record-replay—unified into a single methodology.
 
 * * *
 
@@ -270,7 +297,7 @@ Example commands:
 ```bash
 my-app test golden --scenario checkout-flow
 my-app test golden --scenario checkout-flow --update
-my-app test golden --scenario checkout-flow --diff
+git diff tests/golden/
 ```
 
 **Why**: AI agents work better with structured text than screenshots.
@@ -358,7 +385,34 @@ Define canonical scenarios that maximize coverage:
 **Why**: Tests that don’t run on every commit don’t catch regressions.
 Speed is non-negotiable.
 
-### 7. Establish Session Management Workflows
+### 7. Layer Domain-Focused Assertions
+
+In addition to raw diff comparison, layer targeted programmatic assertions for critical
+invariants:
+
+- **Shape/contract checks**: Validate event structure matches schemas
+
+- **Ordering invariants**: Assert events appear in expected sequence
+
+- **Aggregate constraints**: Verify totals, counts, or derived values are consistent
+
+- **Cross-event relationships**: Check that IDs referenced in one event exist in another
+
+```typescript
+// Example: combine diff with targeted assertions
+const session = runScenario('checkout-flow');
+compareToGolden(session, 'checkout-flow.yaml');
+
+// Additional invariants beyond raw diff
+assert(session.events.filter(e => e.type === 'payment').length === 1);
+assert(session.events.find(e => e.type === 'order_created')?.total > 0);
+```
+
+**Why**: Raw diffs catch unexpected changes; targeted assertions catch semantic
+violations that might not appear as diff noise.
+The combination provides maximum signal with minimal brittleness.
+
+### 8. Establish Session Management Workflows
 
 The developer workflow for golden tests:
 
@@ -413,6 +467,11 @@ They deserve the same review rigor as code.
 
 - Do keep scenarios few, representative, and fast.
 
+- Do prefer many small artifacts over monolithic traces—shard by scenario, phase, or
+  subsystem.
+
+- Do layer targeted assertions for critical invariants alongside raw diff comparison.
+
 - Do find ways to log text fields that matter, even if they are long: consider
   truncating after a length or truncating in the middle of a long string, so you can see
   part of it for quick debugging.
@@ -425,6 +484,8 @@ They deserve the same review rigor as code.
 
 - Don’t fork logic for tests vs production; share code paths.
 
+- Don’t let artifacts grow unbounded—add lint checks to warn on size thresholds.
+
 ### Common Pitfalls
 
 - Missing unstable field classification → flaky diffs.
@@ -436,6 +497,10 @@ They deserve the same review rigor as code.
 - Slow or network‑bound scenarios → skipped in practice, regressions leak.
 
 - LLM output not recorded or scrubbed → non‑deterministic sessions.
+
+- Monolithic traces that grow unbounded → hard to review, slow to diff.
+
+- Over-approval without careful review → tests pass but behavior is wrong.
 
 * * *
 
@@ -474,7 +539,8 @@ When implementing golden testing for a new project:
 
 - [ ] Mark each field as stable or unstable in schema documentation
 
-- [ ] Implement stable field filtering as a centralized utility
+- [ ] Implement stable field filtering by having it in the event data model from the
+  start
 
 - [ ] Add mock mode toggle via environment variable
 
@@ -488,20 +554,43 @@ When implementing golden testing for a new project:
 
 - [ ] Add `test:golden` and `test:golden --update` scripts
 
-- [ ] Be sure to check CI fails due to golden test failures on unexpected golden diffs
+- [ ] Add artifact lint checks (size thresholds, unstable field detection)
+
+- [ ] If appropriate, add configurable comparison strictness (strict/lenient/partial)
+
+- [ ] If appropriate, support multi-format outputs (YAML, text files, log files, etc.)
+
+- [ ] Add targeted assertions for critical invariants alongside diff comparison
+
+- [ ] Be sure to confirm CI fails due to golden test failures on unexpected golden diffs
 
 - [ ] Document the session review workflow for the team
+
+- [ ] Consider complementary testing approaches (property-based, contract testing)
 
 * * *
 
 ## Comparison with Alternatives
 
-| Approach | Intermediate States | Stable Filtering | CLI Support | AI-Friendly |
-| --- | --- | --- | --- | --- |
-| Jest Snapshots | No | Manual | Limited | No |
-| ApprovalTests | No | Scrubbers | Limited | No |
-| VCR | No (HTTP only) | Some | No | No |
-| Golden Sessions | Yes | Schema-based | First-class | Yes |
+### By Use Case and Suitability
+
+| Approach | Scope | Stability | Maintenance | Debugging | AI Suitability |
+| --- | --- | --- | --- | --- | --- |
+| Golden Sessions | Full session traces | High (stable fields) | Medium | Excellent | Excellent |
+| ApprovalTests | Whole value outputs | Medium-High | Medium | Good | Very Good |
+| Jest Snapshots | Component outputs | Low (brittle) | High | Poor | Poor |
+| VCR/Cassettes | HTTP only | Medium | Low | Limited | Limited |
+| Unit Tests | Individual functions | High | Low | Good | Limited |
+
+### By Artifact Form and Workflow
+
+| Approach | Artifact Form | Update Flow | Primary Risk |
+| --- | --- | --- | --- |
+| Golden Sessions | Execution trace (YAML) | Regenerate + review diff | Trace bloat if unmanaged |
+| ApprovalTests | Approved artifact | Re-approve on change | Over-approval without review |
+| Jest Snapshots | Serialized component | Update snapshots | Brittleness from noise |
+| VCR/Cassettes | HTTP interaction trace | Re-record cassette | Drift vs real service behavior |
+| Golden Files (Go/Bazel) | Text/binary output | Regenerate golden | Bloat if unmanaged |
 
 **When to use simpler alternatives**:
 
@@ -511,18 +600,45 @@ When implementing golden testing for a new project:
 
 - Screenshot testing: Visual regression where pixels matter
 
+### Complementary Approaches
+
+Golden session testing works well alongside other testing strategies:
+
+- **Property-based testing**: Use for edge case exploration and invariant validation.
+  Golden tests capture expected behavior; property tests explore unexpected inputs.
+
+- **Contract testing**: For API boundary validation between services.
+  Golden tests verify internal behavior; contract tests verify interface agreements.
+
+- **Unit tests**: For isolated function logic and edge cases.
+  Golden tests provide end-to-end coverage; unit tests provide granular verification.
+
 * * *
 
 ## References
 
+**Books**:
+
 - Feathers, Michael. *Working Effectively with Legacy Code*. Prentice Hall, 2004.
+
+- Pryce, Nat & Freeman, Steve.
+  *Growing Object-Oriented Software, Guided by Tests*. Addison-Wesley, 2009.
+
+**Articles**:
 
 - Mitchell Hashimoto, “Testing with Golden Files”:
   https://mitchellh.com/writing/golden-files
 
-- ApprovalTests: https://approvaltests.com/
+- Llewellyn Falco, Approval Testing methodology: https://approvaltests.com/
+
+- Characterization Testing (Wikipedia):
+  https://en.wikipedia.org/wiki/Characterization_test
+
+**Tools and Frameworks**:
 
 - Jest Snapshot Testing: https://jestjs.io/docs/snapshot-testing
+
+- Playwright Snapshots (non-image): https://playwright.dev/docs/test-snapshots
 
 - Go “testdata/” convention: https://pkg.go.dev/cmd/go#hdr-Test_packages
 
@@ -540,3 +656,7 @@ When implementing golden testing for a new project:
 - insta (Rust): https://github.com/mitsuhiko/insta
 
 - Verify (.NET): https://github.com/VerifyTests/Verify
+
+- ScalaTest Matchers: https://www.scalatest.org/user_guide/using_matchers
+
+- Concordion (Java): https://concordion.org/
