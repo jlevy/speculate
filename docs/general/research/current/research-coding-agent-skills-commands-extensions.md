@@ -6,8 +6,7 @@
 
 **Related**:
 
-- [plan-2026-01-03-claude-code-plugin-support.md](../../../cli/docs/project/specs/active/plan-2026-01-03-claude-code-plugin-support.md)
-- [automatic-shortcut-triggers.md](../../agent-rules/automatic-shortcut-triggers.md)
+- [automatic-shortcut-triggers.md](../agent-rules/automatic-shortcut-triggers.md)
 
 ---
 
