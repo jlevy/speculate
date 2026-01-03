@@ -8,6 +8,19 @@ while maintaining compatibility with other coding agents (Cursor, Codex, etc.).
 
 ## Background
 
+### Research Reference
+
+For comprehensive background on coding agent extension mechanisms, see:
+[research-coding-agent-skills-commands-extensions.md](../../../../docs/general/research/current/research-coding-agent-skills-commands-extensions.md)
+
+Key findings relevant to this implementation:
+
+| Mechanism | Invocation | Use in Speculate |
+|-----------|------------|------------------|
+| **Skills** | Automatic (semantic matching) | Routing skill for auto-triggering shortcuts |
+| **Commands** | Explicit (`/command-name`) | Shortcuts become `/speculate:*` commands |
+| **Plugins** | Distribution bundle | Bundle commands + routing skill together |
+
 ### Current State
 
 The Speculate CLI currently supports:
@@ -30,65 +43,6 @@ Currently, Claude Code users must:
 
 Cursor users get symlinked rules but not shortcuts. There's no first-class integration
 with Claude Code's plugin/skill/command system.
-
-### Research: Claude Code Extension Points
-
-Claude Code provides several extension mechanisms:
-
-| Mechanism | Invocation | Best For |
-|-----------|------------|----------|
-| **Skills** | Automatic (semantic matching by description) | Complex capabilities Claude should apply contextually |
-| **Commands** | Explicit (`/command-name`) | Quick, frequently-used prompts |
-| **Plugins** | Distribution package | Bundling skills + commands together |
-| **Hooks** | Lifecycle events | Auto-formatting, notifications |
-
-#### Skills
-
-Skills are markdown files with `SKILL.md` that Claude **automatically invokes** based on
-semantic matching of their description. Key characteristics:
-
-- Live in `.claude/skills/` (project) or `~/.claude/skills/` (personal)
-- Have YAML frontmatter with `name` and `description`
-- Claude loads descriptions at startup, activates matching skills contextually
-- Can instruct Claude to invoke specific slash commands
-
-#### Commands
-
-Commands are markdown files that users **explicitly invoke** with `/command-name`:
-
-- Live in `.claude/commands/` (project) or `~/.claude/commands/` (personal)
-- Support arguments (`$1`, `$2`, `$ARGUMENTS`)
-- Support file references (`@filename`)
-- Support tool restrictions (`allowed-tools`)
-
-#### Plugins
-
-Plugins bundle commands, skills, hooks, and MCP servers together:
-
-```
-plugin-name/
-├── .claude-plugin/
-│   └── plugin.json          # Manifest with name, version, description
-├── commands/                 # Slash commands
-├── skills/                   # Auto-triggered skills
-└── hooks/                    # Lifecycle hooks
-```
-
-Key plugin behaviors:
-- Commands are namespaced: `/plugin-name:command-name`
-- Plugins can be installed via marketplace or placed directly in `.claude/plugins/`
-- **Symlinks are followed** when plugins are installed
-- Project plugins live in `.claude/plugins/`
-
-#### Auto-Triggering
-
-Claude Code does NOT have Cursor's `alwaysApply: true` mechanism. However, the same
-effect can be achieved through:
-
-1. **Skills with comprehensive descriptions** - Claude matches semantically
-2. **Skill instructions that invoke commands** - Skill tells Claude which `/command` to use
-
-This maps well to our existing `automatic-shortcut-triggers.md` pattern.
 
 ### Reference: Current CLI Symlink Pattern
 
@@ -472,6 +426,38 @@ shortcuts with the same name (after stripping `shortcut:` prefix).
 | 5 | Where does skill get content? | Generate from `automatic-shortcut-triggers.md` | Stays in sync with existing trigger table |
 | 6 | Include agent-rules in plugin? | No (v1) | Commands are primary; rules work via CLAUDE.md |
 | 7 | Include agent-setup shortcuts? | Yes | Useful setup commands like `setup-github-cli` |
+
+---
+
+## Open Questions
+
+### Implementation Questions
+
+1. **Skill description optimization**: How specific should the routing skill's description
+   be to ensure reliable activation without false positives? Need to test with real usage.
+
+2. **Shortcut format compatibility**: Do existing shortcuts need any modifications to work
+   well as Claude Code commands? (e.g., `@` references, relative paths)
+
+3. **Update workflow**: When `speculate update` pulls new shortcuts, should the plugin be
+   automatically regenerated? What about symlink validity checking?
+
+4. **Conflict handling**: What happens if a user has their own `.claude/plugins/speculate/`
+   or commands with the same names?
+
+### Broader Questions (from Research Brief)
+
+5. **Cross-platform skill translation**: Could shortcuts be automatically adapted to work
+   as Cursor rules (with `alwaysApply`) in addition to Claude Code commands?
+
+6. **Skill versioning**: How should we version the generated plugin when shortcuts change?
+   Should `plugin.json` version track the Speculate CLI version?
+
+7. **Personal vs project installation**: Should we support installing to `~/.claude/plugins/`
+   for cross-project availability? What are the trade-offs?
+
+8. **Marketplace distribution**: Is it worth publishing Speculate to a Claude Code marketplace
+   for easier discovery, or is CLI installation sufficient?
 
 ---
 
