@@ -11,6 +11,23 @@
 
 ---
 
+## Versions Documented
+
+| Tool/Platform | Version | Date Researched | Primary Source |
+|---------------|---------|-----------------|----------------|
+| Claude Code | v2.0.74 | 2026-01-03 | [CHANGELOG.md](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md) |
+| Claude Skills Spec | v1.0 | 2026-01-03 | [platform.claude.com](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) |
+| Anthropic Skills Repo | — | 2026-01-03 | [github.com/anthropics/skills](https://github.com/anthropics/skills) |
+| Superpowers | — | 2026-01-03 | [github.com/obra/superpowers](https://github.com/obra/superpowers) |
+| OpenAI Codex | — | 2026-01-03 | [developers.openai.com/codex](https://developers.openai.com/codex/) |
+| AGENTS.md Spec | v1.0 | 2026-01-03 | [agents.md](https://agents.md/) |
+| Cursor | — | 2026-01-03 | [docs.cursor.com](https://docs.cursor.com/) |
+| Windsurf (Cascade) | — | 2026-01-03 | [docs.windsurf.com](https://docs.windsurf.com/) |
+
+*Note: "—" indicates version not explicitly published or not applicable.*
+
+---
+
 ## Executive Summary
 
 Modern AI coding agents (Claude Code, Cursor, OpenAI Codex, Windsurf) have converged on
