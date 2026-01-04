@@ -559,7 +559,7 @@ def _generate_skill_md(shortcut_names: list[str]) -> str:
     semantic matching, directing it to use the appropriate /speculate:* command.
     """
     # Build trigger table rows for available shortcuts
-    trigger_rows = []
+    trigger_rows: list[str] = []
     for name in sorted(shortcut_names):
         stem = name.replace(".md", "")
         description = SHORTCUT_TRIGGER_DESCRIPTIONS.get(stem, f"Using {stem}")
