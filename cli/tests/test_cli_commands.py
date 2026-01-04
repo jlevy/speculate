@@ -1176,3 +1176,39 @@ class TestTokenBudgetDocs:
 
         assert "## Token Budget" in result
         assert "400-500 tokens" in result
+
+
+class TestMandatoryLanguage:
+    """Tests for mandatory enforcement language in SKILL.md."""
+
+    def test_skill_md_includes_must_language(self):
+        """SKILL.md should include MUST enforcement language."""
+        shortcuts = ["new-plan-spec.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "you MUST check" in result
+        assert "you MUST use it" in result
+
+    def test_skill_md_includes_not_optional(self):
+        """SKILL.md should include 'This is NOT Optional' section."""
+        shortcuts = ["new-plan-spec.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "## This is NOT Optional" in result
+        assert "WRONG" in result
+
+    def test_skill_md_includes_session_close(self):
+        """SKILL.md should include session close protocol."""
+        shortcuts = ["new-plan-spec.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "## Session Close Protocol" in result
+        assert "Work is not done until pushed" in result
+
+    def test_skill_md_includes_pr_prerequisites(self):
+        """SKILL.md should include PR prerequisites with gh setup."""
+        shortcuts = ["new-plan-spec.md", "setup-github-cli.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "### PR Flow (Prerequisites)" in result
+        assert "/speculate:setup-github-cli" in result

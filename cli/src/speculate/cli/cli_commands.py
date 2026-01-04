@@ -670,7 +670,8 @@ def _generate_skill_md(shortcut_names: list[str]) -> str:
 
         # Speculate Workflow Router
 
-        Before responding to coding or development requests, check if a Speculate command applies.
+        Before responding to ANY coding or development request, you MUST check if a
+        Speculate command applies. If a command applies, you MUST use it.
 
         ## Trigger Table
 
@@ -690,14 +691,35 @@ def _generate_skill_md(shortcut_names: list[str]) -> str:
         1. /speculate:precommit-process
         2. /speculate:commit-code
 
+        ### PR Flow (Prerequisites)
+        Before creating a PR:
+        1. Ensure GitHub CLI is configured: /speculate:setup-github-cli
+        2. Run pre-commit checks: /speculate:precommit-process
+        3. Create PR: /speculate:create-or-update-pr-with-validation-plan
+
+        ## This is NOT Optional
+
+        If a command exists for your task, you MUST use it.
+        Do not rationalize skipping it:
+        - "This is simple" → WRONG. Use the command.
+        - "I know how to do this" → WRONG. The command has steps you'll forget.
+        - "The user didn't ask" → WRONG. Commands are mandatory when applicable.
+
+        ## Session Close Protocol
+
+        Before saying "done" or "complete", ensure:
+        1. All code changes are committed
+        2. Changes are pushed to remote
+        3. PR is created if on a feature branch
+
+        Work is not done until pushed.
+
         ## Usage
 
         When a matching trigger is detected:
         1. Announce: "Using /speculate:[command-name]"
         2. Invoke the command
         3. Follow the command's instructions exactly
-
-        If no shortcut applies, proceed normally without a shortcut.
 
         ## Token Budget
 
