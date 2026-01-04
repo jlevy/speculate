@@ -7,6 +7,27 @@ the Claude Code plugin support feature in the Speculate CLI.
 
 **Feature Plan:** [plan-2026-01-03-claude-code-plugin-support.md](plan-2026-01-03-claude-code-plugin-support.md)
 
+**Research Brief:** [research-coding-agent-skills-commands-extensions.md](../../../../docs/general/research/current/research-coding-agent-skills-commands-extensions.md)
+
+## Scope of This PR
+
+This PR includes three components:
+
+1. **v1 Core Implementation** ✅ Complete
+   - Claude Code plugin generation (`speculate install`)
+   - Plugin removal (`speculate uninstall`)
+   - Status reporting (`speculate status`)
+   - 22 unit/integration tests
+
+2. **v1.1 & v2 Enhancement Planning** ✅ Complete
+   - Ecosystem research comparing with Superpowers, cassler/awesome-claude-code-setup, etc.
+   - Detailed implementation plans for Priority 1 and Priority 2 features
+   - 12 beads created for tracking (4 for v1.1, 6 for v2, 2 epics)
+
+3. **Research Documentation** ✅ Complete
+   - Comprehensive research brief on coding agent extension mechanisms
+   - Cross-platform comparison (Claude Code, Codex, Cursor, Windsurf)
+
 ## Stage 4: Validation Stage
 
 ## Validation Planning
@@ -140,6 +161,46 @@ If Claude Code is installed:
 2. Type `/speculate:` and verify command autocomplete shows available commands
 3. Try running `/speculate:new-plan-spec` to verify command execution
 
+## Planning Validation (v1.1 & v2)
+
+The following planning artifacts were created and should be reviewed:
+
+### v1.1 Enhancement Plan (Priority 1 - Before Merge)
+
+Located in plan spec v1.1 section. Features planned:
+
+| Feature | Bead ID | Purpose |
+|---------|---------|---------|
+| Dynamic version sync | `speculate-dc9` | Plugin version matches CLI version |
+| Plugin README | `speculate-j58` | Generated README.md for discoverability |
+| Token budget docs | `speculate-35s` | Document context overhead in SKILL.md |
+| Tests | `speculate-xbc` | Unit tests for v1.1 features |
+
+**Epic**: `speculate-nz9`
+
+### v2 Enhancement Plan (Priority 2 - Future Release)
+
+Located in plan spec v2 section. Features planned:
+
+| Feature | Bead ID | Purpose |
+|---------|---------|---------|
+| SessionStart hook | `speculate-qhg` | Welcome message on session start |
+| Personal installation | `speculate-hr8` | `--global` flag for ~/.claude/plugins/ |
+| PostToolUse hook | `speculate-azw` | Optional auto-formatting hook |
+| Cross-platform | `speculate-hos` | Cursor rules from shortcuts |
+| Agent-rules symlinks | `speculate-3we` | Reference directory in plugin |
+| Tests | `speculate-5wo` | Unit tests for v2 features |
+
+**Epic**: `speculate-j49`
+
+### Review Checklist for Plans
+
+- [ ] v1.1 features are appropriate for "before merge" priority
+- [ ] v2 features are appropriate for "future release" priority
+- [ ] Implementation details are clear and actionable
+- [ ] Beads are correctly linked to plan spec
+- [ ] Dependencies between beads are correct
+
 ## Open Questions
 
 1. **Full test suite**: Can the user run `make test` successfully in the CLI directory?
@@ -147,3 +208,9 @@ If Claude Code is installed:
 
 2. **Claude Code plugin loading**: Does Claude Code correctly load plugins from
    `.claude/plugins/` with symlinked commands? This needs manual verification.
+
+3. **v1.1 scope**: Should v1.1 features be implemented before merging this PR, or
+   is the current v1 implementation sufficient for initial release?
+
+4. **Ecosystem alignment**: Are there other popular plugin patterns we should consider
+   beyond what's documented in the research brief?
