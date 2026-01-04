@@ -53,10 +53,11 @@ SETTINGS_FILE = f"{SPECULATE_DIR}/settings.yml"
 # Claude Code plugin configuration
 CLAUDE_PLUGIN_NAME = "speculate"
 CLAUDE_PLUGIN_DIR = f".claude/plugins/{CLAUDE_PLUGIN_NAME}"
-CLAUDE_PLUGIN_VERSION = "1.0.0"
 CLAUDE_PLUGIN_DESCRIPTION = (
     "Spec-driven development workflows: planning, implementation, commits, PRs, and code review"
 )
+CLAUDE_PLUGIN_REPOSITORY = "https://github.com/jlevy/speculate"
+CLAUDE_PLUGIN_HOMEPAGE = "https://github.com/jlevy/speculate"
 
 
 def init(
@@ -196,6 +197,7 @@ def install(
     include: list[str] | None = None,
     exclude: list[str] | None = None,
     force: bool = False,
+    global_install: bool = False,
 ) -> None:
     """Generate tool configs for Cursor, Claude Code, and Codex.
 
@@ -218,13 +220,24 @@ def install(
       - Default: include all (["**/*.md"])
 
     Use --force to overwrite existing symlinks and regenerate generated files.
+    Use --global to install the plugin to ~/.claude/plugins/ for personal use.
 
     Examples:
       speculate install
       speculate install --include "general-*.md"
       speculate install --exclude "convex-*.md"
       speculate install --force
+      speculate install --global  # Personal installation to ~/.claude/plugins/
     """
+    # Handle global installation separately
+    if global_install:
+        print_header("Installing Speculate plugin globally...", Path.home())
+        _setup_global_claude_plugin(force=force)
+        rprint()
+        print_success("Global plugin installed!")
+        print_info("Note: Run `speculate install` in a project to add commands.")
+        rprint()
+        return
     cwd = Path.cwd()
     docs_path = cwd / "docs"
 
@@ -345,7 +358,7 @@ def status() -> None:
         else:
             print_info(f"{name} not configured")
 
-    # Check Claude Code plugin
+    # Check Claude Code plugin (project-level)
     claude_plugin = cwd / CLAUDE_PLUGIN_DIR
     if claude_plugin.exists():
         commands_dir = claude_plugin / "commands"
@@ -356,6 +369,14 @@ def status() -> None:
             print_warning(f"{CLAUDE_PLUGIN_DIR}/ exists but has no commands")
     else:
         print_info(f"{CLAUDE_PLUGIN_DIR}/ not configured")
+
+    # Check global Claude Code plugin
+    home = Path.home()
+    global_plugin = home / ".claude" / "plugins" / CLAUDE_PLUGIN_NAME
+    if global_plugin.exists():
+        print_success(f"~/.claude/plugins/{CLAUDE_PLUGIN_NAME}/ exists (global)")
+    else:
+        print_info(f"~/.claude/plugins/{CLAUDE_PLUGIN_NAME}/ not configured (global)")
 
     rprint()
 
@@ -508,15 +529,86 @@ def _matches_patterns(
     return True
 
 
+def _get_plugin_version() -> str:
+    """Get the plugin version from the CLI package version."""
+    try:
+        return version(PACKAGE_NAME)
+    except Exception:
+        return "0.0.0"
+
+
 def _generate_plugin_json() -> str:
     """Generate plugin.json content for the Speculate Claude Code plugin."""
     plugin_data = {
         "name": CLAUDE_PLUGIN_NAME,
-        "version": CLAUDE_PLUGIN_VERSION,
+        "version": _get_plugin_version(),
         "description": CLAUDE_PLUGIN_DESCRIPTION,
         "author": {"name": "Speculate"},
+        "repository": CLAUDE_PLUGIN_REPOSITORY,
+        "homepage": CLAUDE_PLUGIN_HOMEPAGE,
     }
     return json.dumps(plugin_data, indent=2) + "\n"
+
+
+def _generate_plugin_readme(command_count: int) -> str:
+    """Generate README.md content for the Speculate plugin."""
+    return dedent(f"""
+        # Speculate Plugin for Claude Code
+
+        This plugin provides spec-driven development workflows for Claude Code.
+
+        ## What's Included
+
+        - **{command_count} commands**: Type `/speculate:` to see available commands
+        - **1 skill**: `speculate-workflow` for automatic workflow detection
+
+        ## Usage
+
+        Commands are invoked as `/speculate:command-name`. For example:
+        - `/speculate:new-plan-spec` - Create a feature plan
+        - `/speculate:implement-beads` - Implement work items
+        - `/speculate:commit-code` - Commit with pre-commit checks
+
+        The routing skill automatically suggests relevant commands based on your task.
+
+        ## Common Workflow Chains
+
+        **Full Feature Flow:**
+        1. `/speculate:new-plan-spec`
+        2. `/speculate:new-implementation-beads-from-spec`
+        3. `/speculate:implement-beads`
+        4. `/speculate:create-or-update-pr-with-validation-plan`
+
+        **Commit Flow:**
+        1. `/speculate:precommit-process`
+        2. `/speculate:commit-code`
+
+        ## Source
+
+        Commands are symlinked from `docs/general/agent-shortcuts/`. Edit the source
+        files to customize behavior.
+
+        ## More Information
+
+        - Repository: {CLAUDE_PLUGIN_REPOSITORY}
+        - CLI: `pip install {PACKAGE_NAME}`
+        """).strip() + "\n"
+
+
+def _generate_hooks_json(include_session_start: bool = True) -> str:
+    """Generate hooks.json for lifecycle automation."""
+    hooks_data: dict[str, Any] = {"hooks": {}}
+
+    if include_session_start:
+        hooks_data["hooks"]["SessionStart"] = [{
+            "matcher": "*",
+            "hooks": [{
+                "type": "command",
+                "command": "echo 'Speculate workflows available. Type /speculate: to see commands.'"
+            }]
+        }]
+
+    return json.dumps(hooks_data, indent=2) + "\n"
 
 
 # Maps shortcut stems to human-readable descriptions for the routing skill.
@@ -606,6 +698,17 @@ def _generate_skill_md(shortcut_names: list[str]) -> str:
         3. Follow the command's instructions exactly
 
         If no shortcut applies, proceed normally without a shortcut.
+
+        ## Token Budget
+
+        This skill adds approximately 400-500 tokens to context when activated.
+        The trigger table and workflow chains are designed to be concise while
+        providing clear routing guidance.
+
+        To minimize token usage:
+        - The skill only activates when semantic matching triggers it
+        - Detailed command instructions are in the command files (loaded on demand)
+        - Keep your prompts focused on the task at hand
         """).strip() + "\n"
 
 
@@ -614,6 +717,7 @@ def _setup_claude_plugin(
     include: list[str] | None = None,
     exclude: list[str] | None = None,
     force: bool = False,
+    with_hooks: bool = True,
 ) -> None:
     """
     Set up .claude/plugins/speculate/ with symlinks to shortcuts.
@@ -625,8 +729,11 @@ def _setup_claude_plugin(
 
     Creates:
       - .claude/plugins/speculate/.claude-plugin/plugin.json
+      - .claude/plugins/speculate/README.md
       - .claude/plugins/speculate/commands/*.md (symlinks)
       - .claude/plugins/speculate/skills/speculate-workflow/SKILL.md
+      - .claude/plugins/speculate/hooks/hooks.json (if with_hooks=True)
+      - .claude/plugins/speculate/reference/ (symlinks to agent-rules)
 
     Symlinks strip the 'shortcut:' prefix for clean command names.
     """
@@ -634,6 +741,8 @@ def _setup_claude_plugin(
     commands_dir = plugin_dir / "commands"
     skills_dir = plugin_dir / "skills" / "speculate-workflow"
     manifest_dir = plugin_dir / ".claude-plugin"
+    hooks_dir = plugin_dir / "hooks"
+    reference_dir = plugin_dir / "reference"
 
     # Collect shortcuts from all sources
     # Maps: clean_name -> (source_path, relative_dir_for_symlink)
@@ -668,6 +777,9 @@ def _setup_claude_plugin(
     commands_dir.mkdir(parents=True, exist_ok=True)
     skills_dir.mkdir(parents=True, exist_ok=True)
     manifest_dir.mkdir(parents=True, exist_ok=True)
+    reference_dir.mkdir(parents=True, exist_ok=True)
+    if with_hooks:
+        hooks_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate plugin.json
     plugin_json = _generate_plugin_json()
@@ -676,6 +788,23 @@ def _setup_claude_plugin(
         with atomic_output_file(plugin_json_path) as temp_path:
             Path(temp_path).write_text(plugin_json)
         print_success(f"Generated {CLAUDE_PLUGIN_DIR}/.claude-plugin/plugin.json")
+
+    # Generate README.md
+    readme_path = plugin_dir / "README.md"
+    if not readme_path.exists() or force:
+        readme_content = _generate_plugin_readme(len(shortcuts))
+        with atomic_output_file(readme_path) as temp_path:
+            Path(temp_path).write_text(readme_content)
+        print_success(f"Generated {CLAUDE_PLUGIN_DIR}/README.md")
+
+    # Generate hooks.json (optional)
+    if with_hooks:
+        hooks_json_path = hooks_dir / "hooks.json"
+        if not hooks_json_path.exists() or force:
+            hooks_content = _generate_hooks_json()
+            with atomic_output_file(hooks_json_path) as temp_path:
+                Path(temp_path).write_text(hooks_content)
+            print_success(f"Generated {CLAUDE_PLUGIN_DIR}/hooks/hooks.json")
 
     # Create symlinks for each shortcut
     linked_count = 0
@@ -713,6 +842,37 @@ def _setup_claude_plugin(
         with atomic_output_file(skill_md_path) as temp_path:
             Path(temp_path).write_text(skill_md)
         print_success(f"Generated {CLAUDE_PLUGIN_DIR}/skills/speculate-workflow/SKILL.md")
+
+    # Create reference symlinks to agent-rules
+    ref_linked = 0
+    general_rules_dir = project_root / "docs" / "general" / "agent-rules"
+    project_rules_dir = project_root / "docs" / "project" / "agent-rules"
+
+    # Collect rules from both sources, project takes precedence
+    rules: dict[str, tuple[Path, str]] = {}
+    if general_rules_dir.exists():
+        for rule_file in general_rules_dir.glob("*.md"):
+            rules[rule_file.stem] = (rule_file, "docs/general/agent-rules")
+    if project_rules_dir.exists():
+        for rule_file in project_rules_dir.glob("*.md"):
+            rules[rule_file.stem] = (rule_file, "docs/project/agent-rules")
+
+    for stem in sorted(rules.keys()):
+        rule_path, relative_dir = rules[stem]
+        link_path = reference_dir / rule_path.name
+
+        if link_path.exists() or link_path.is_symlink():
+            if not force:
+                continue
+            link_path.unlink()
+
+        # reference/ is 4 levels deep: .claude/plugins/speculate/reference/
+        relative_target = Path("..") / ".." / ".." / ".." / relative_dir / rule_path.name
+        link_path.symlink_to(relative_target)
+        ref_linked += 1
+
+    if ref_linked > 0:
+        print_success(f"Linked {ref_linked} agent-rules to {CLAUDE_PLUGIN_DIR}/reference/")
 
     # Status message
     msg_parts: list[str] = []
@@ -849,6 +1009,127 @@ def _remove_cursor_rules(project_root: Path) -> None:
         print_success(f"Removed {removed_count} symlinks from .cursor/rules/")
 
 
+def _setup_global_claude_plugin(force: bool = False) -> None:
+    """
+    Install Speculate plugin globally to ~/.claude/plugins/speculate/.
+
+    This creates a personal installation that provides the base plugin
+    without project-specific commands. Useful for having the plugin
+    available across all Claude Code sessions.
+
+    Creates:
+      - ~/.claude/plugins/speculate/.claude-plugin/plugin.json
+      - ~/.claude/plugins/speculate/README.md
+      - ~/.claude/plugins/speculate/skills/speculate-workflow/SKILL.md
+      - ~/.claude/plugins/speculate/hooks/hooks.json
+
+    Note: Commands are not installed globally since they require project
+    context. Use `speculate install` in a project to add commands.
+    """
+    home = Path.home()
+    plugin_dir = home / ".claude" / "plugins" / CLAUDE_PLUGIN_NAME
+    skills_dir = plugin_dir / "skills" / "speculate-workflow"
+    manifest_dir = plugin_dir / ".claude-plugin"
+    hooks_dir = plugin_dir / "hooks"
+
+    # Create directory structure
+    skills_dir.mkdir(parents=True, exist_ok=True)
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate plugin.json
+    plugin_json = _generate_plugin_json()
+    plugin_json_path = manifest_dir / "plugin.json"
+    if not plugin_json_path.exists() or force:
+        with atomic_output_file(plugin_json_path) as temp_path:
+            Path(temp_path).write_text(plugin_json)
+        print_success("Generated ~/.claude/plugins/speculate/.claude-plugin/plugin.json")
+
+    # Generate README.md (with 0 commands since global install has no commands)
+    readme_path = plugin_dir / "README.md"
+    if not readme_path.exists() or force:
+        readme_content = _generate_plugin_readme(0).replace(
+            "- **0 commands**: Type `/speculate:` to see available commands",
+            "- **Commands**: Run `speculate install` in a project to add commands"
+        )
+        with atomic_output_file(readme_path) as temp_path:
+            Path(temp_path).write_text(readme_content)
+        print_success("Generated ~/.claude/plugins/speculate/README.md")
+
+    # Generate hooks.json
+    hooks_json_path = hooks_dir / "hooks.json"
+    if not hooks_json_path.exists() or force:
+        hooks_content = _generate_hooks_json()
+        with atomic_output_file(hooks_json_path) as temp_path:
+            Path(temp_path).write_text(hooks_content)
+        print_success("Generated ~/.claude/plugins/speculate/hooks/hooks.json")
+
+    # Generate SKILL.md (with no specific commands, just guidance)
+    skill_md_path = skills_dir / "SKILL.md"
+    if not skill_md_path.exists() or force:
+        skill_content = dedent("""
+            ---
+            name: speculate-workflow
+            description: Spec-driven development workflow automation. Activates for feature planning,
+              implementation specs, code commits, PR creation, code review, research briefs,
+              architecture docs, cleanup tasks, and any development workflow that benefits from
+              structured methodology.
+            ---
+
+            # Speculate Workflow Router (Global)
+
+            This is the global Speculate plugin installation. To get project-specific
+            commands, run `speculate install` in your project directory.
+
+            ## Available Workflows
+
+            When working in a project with Speculate installed, these workflows are available:
+
+            - **Feature Planning**: Create spec-driven feature plans
+            - **Implementation**: Create beads and implement systematically
+            - **Code Review**: Pre-commit checks and PR creation
+            - **Research**: Technical investigation and documentation
+
+            ## Setup
+
+            To enable commands in the current project:
+
+            ```bash
+            speculate install
+            ```
+
+            This will add `/speculate:*` commands to your project.
+            """).strip() + "\n"
+        with atomic_output_file(skill_md_path) as temp_path:
+            Path(temp_path).write_text(skill_content)
+        print_success("Generated ~/.claude/plugins/speculate/skills/speculate-workflow/SKILL.md")
+
+
+def _remove_global_claude_plugin() -> None:
+    """
+    Remove ~/.claude/plugins/speculate/ directory.
+
+    Only removes the speculate plugin, not other plugins or .claude/ content.
+    """
+    home = Path.home()
+    plugin_dir = home / ".claude" / "plugins" / CLAUDE_PLUGIN_NAME
+
+    if not plugin_dir.exists():
+        return
+
+    shutil.rmtree(plugin_dir)
+    print_success("Removed ~/.claude/plugins/speculate/")
+
+    # Clean up empty parent directories
+    plugins_dir = plugin_dir.parent
+    if plugins_dir.exists() and not any(plugins_dir.iterdir()):
+        plugins_dir.rmdir()
+
+    claude_dir = plugins_dir.parent
+    if claude_dir.exists() and not any(claude_dir.iterdir()):
+        claude_dir.rmdir()
+
+
 def _remove_claude_plugin(project_root: Path) -> None:
     """
     Remove .claude/plugins/speculate/ directory.
@@ -874,7 +1155,7 @@ def _remove_claude_plugin(project_root: Path) -> None:
         claude_dir.rmdir()
 
 
-def uninstall(force: bool = False) -> None:
+def uninstall(force: bool = False, global_install: bool = False) -> None:
     """Remove tool configs installed by speculate.
 
     Removes:
@@ -891,10 +1172,39 @@ def uninstall(force: bool = False) -> None:
     If CLAUDE.md or AGENTS.md becomes empty after header removal, the file
     is deleted entirely.
 
+    Use --global to uninstall from ~/.claude/plugins/ instead of project.
+
     Examples:
       speculate uninstall           # Uninstall with confirmation
       speculate uninstall --force   # Uninstall without confirmation
+      speculate uninstall --global  # Uninstall global plugin
     """
+    # Handle global uninstall
+    if global_install:
+        home = Path.home()
+        global_plugin = home / ".claude" / "plugins" / CLAUDE_PLUGIN_NAME
+
+        if not global_plugin.exists():
+            print_info("No global plugin installed")
+            return
+
+        print_header("Uninstalling global Speculate plugin...", home)
+        rprint("[bold]Will remove:[/bold]")
+        print_detail(f"~/.claude/plugins/{CLAUDE_PLUGIN_NAME}/")
+        rprint()
+
+        if not force:
+            response = input("Proceed? [y/N] ").strip().lower()
+            if response != "y":
+                print_cancelled()
+                raise SystemExit(0)
+
+        rprint()
+        _remove_global_claude_plugin()
+        rprint()
+        print_success("Global plugin uninstalled!")
+        rprint()
+        return
     cwd = Path.cwd()
 
     print_header("Uninstalling Speculate tool configs...", cwd)

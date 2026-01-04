@@ -129,9 +129,9 @@ The colon in source filenames (`shortcut:*.md`) is irrelevant - only the symlink
 
 **Nice to Have (v2):**
 
-- [ ] Symlink agent-rules as well (for context in skill instructions)
-- [x] Support for agent-setup shortcuts (DONE - included in implementation)
-- [ ] Personal installation to `~/.claude/plugins/`
+- [x] Symlink agent-rules as well (for context in skill instructions) - Done in v2
+- [x] Support for agent-setup shortcuts (DONE - included in v1 implementation)
+- [x] Personal installation to `~/.claude/plugins/` - Done in v2 with `--global` flag
 
 **Not In Scope:**
 
@@ -1127,26 +1127,45 @@ All "Must Have" features have been implemented:
 
 See beads tracking: All 11 beads (speculate-tj4 epic + 10 task beads) are closed.
 
-### v1.1: Priority 1 Enhancements 🔲 In Progress
+### v1.1: Priority 1 Enhancements ✅ Complete (2026-01-04)
 
 **Epic**: `speculate-nz9` - Claude Code plugin v1.1 enhancements
 
 | Bead ID | Task | Status |
 |---------|------|--------|
-| `speculate-dc9` | Implement dynamic version sync for plugin.json | 🔲 Open |
-| `speculate-j58` | Generate README.md in plugin directory | 🔲 Open |
-| `speculate-35s` | Add token budget documentation to SKILL.md | 🔲 Open |
-| `speculate-xbc` | Add tests for v1.1 plugin enhancements | 🔲 Open |
+| `speculate-dc9` | Implement dynamic version sync for plugin.json | ✅ Done |
+| `speculate-j58` | Generate README.md in plugin directory | ✅ Done |
+| `speculate-35s` | Add token budget documentation to SKILL.md | ✅ Done |
+| `speculate-xbc` | Add tests for v1.1 plugin enhancements | ✅ Done |
 
-### v2: Priority 2 Enhancements 🔲 Planned
+**Implementation details:**
+- `_get_plugin_version()` reads version from importlib.metadata
+- `_generate_plugin_readme()` creates informative README.md
+- Token budget section added to `_generate_skill_md()`
+- Repository/homepage URLs added to plugin.json
+- 13 new test cases for v1.1 features
+
+### v2: Priority 2 Enhancements ✅ Complete (2026-01-04)
 
 **Epic**: `speculate-j49` - Claude Code plugin v2 enhancements
 
 | Bead ID | Task | Status |
 |---------|------|--------|
-| `speculate-qhg` | Implement SessionStart hook generation | 🔲 Open |
-| `speculate-hr8` | Implement --global flag for personal installation | 🔲 Open |
-| `speculate-azw` | Implement optional PostToolUse formatting hook | 🔲 Open |
-| `speculate-hos` | Add cross-platform Cursor rules generation | 🔲 Open |
-| `speculate-3we` | Symlink agent-rules to plugin reference directory | 🔲 Open |
-| `speculate-5wo` | Add tests for v2 plugin enhancements | 🔲 Open |
+| `speculate-qhg` | Implement SessionStart hook generation | ✅ Done |
+| `speculate-hr8` | Implement --global flag for personal installation | ✅ Done |
+| `speculate-azw` | Implement optional PostToolUse formatting hook | 🔲 Deferred |
+| `speculate-hos` | Add cross-platform Cursor rules generation | 🔲 Deferred |
+| `speculate-3we` | Symlink agent-rules to plugin reference directory | ✅ Done |
+| `speculate-5wo` | Add tests for v2 plugin enhancements | ✅ Done |
+
+**Implementation details:**
+- `_generate_hooks_json()` creates SessionStart hook
+- `--global` flag on `install` and `uninstall` commands
+- `_setup_global_claude_plugin()` installs to `~/.claude/plugins/`
+- Reference symlinks to agent-rules in plugin directory
+- Status shows both project and global plugin status
+- 7 new test cases for v2 features
+
+**Deferred to v3:**
+- PostToolUse formatting hook (requires more research on best practices)
+- Cross-platform Cursor rules generation (significant complexity)
