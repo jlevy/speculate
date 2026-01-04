@@ -274,6 +274,227 @@ All planned features have been implemented:
 
 **Epic**: `speculate-j49` ✅ Core features complete
 
+## Real-World Testing Guide
+
+This section provides comprehensive guidance for testing the Speculate plugin
+in real-world scenarios across different agent frameworks.
+
+### Testing in Claude Code (Primary)
+
+Claude Code is the primary target for this plugin. Here's how to test it:
+
+#### 1. Basic Plugin Discovery
+
+```bash
+# In a project with speculate docs installed
+speculate install --force
+
+# Open Claude Code in the project directory
+claude
+```
+
+**Expected**: Claude Code should recognize the plugin in `.claude/plugins/speculate/`.
+
+#### 2. Command Autocomplete
+
+Type `/speculate:` in Claude Code and press Tab.
+
+**Expected**: Autocomplete should show all available commands:
+- `/speculate:new-plan-spec`
+- `/speculate:implement-beads`
+- `/speculate:commit-code`
+- etc.
+
+#### 3. Skill-Based Triggering
+
+Test the routing skill by asking Claude Code tasks that should trigger shortcuts:
+
+| Test Prompt | Expected Trigger |
+|-------------|------------------|
+| "Help me plan a new feature for user auth" | `/speculate:new-plan-spec` |
+| "I need to implement the beads from this spec" | `/speculate:implement-beads` |
+| "Review my code and prepare a commit" | `/speculate:precommit-process` |
+| "Create a PR for this work" | `/speculate:create-or-update-pr-with-validation-plan` |
+
+The routing skill should announce "Using /speculate:..." before executing.
+
+#### 4. SessionStart Hook
+
+Start a new Claude Code session in a project with the plugin installed.
+
+**Expected**: Should see a welcome message like:
+```
+Speculate workflows available. Type /speculate: to see commands.
+```
+
+### Installation Modes
+
+There are two installation modes to test:
+
+#### Project Installation (Default)
+
+```bash
+cd /path/to/project
+speculate install
+```
+
+Creates:
+- `.claude/plugins/speculate/` with symlinks to project's docs
+- Commands work with project-specific shortcuts
+- Reference symlinks to project's agent-rules
+
+**Use for**: Regular project work where you want project-specific commands.
+
+#### Global Installation
+
+```bash
+speculate install --global
+```
+
+Creates:
+- `~/.claude/plugins/speculate/` (personal, cross-project)
+- No commands (instructions only)
+- Routing skill with guidance
+
+**Use for**: Having the skill available across all projects, with project-specific
+commands added per-project via `speculate install`.
+
+#### Combined Usage (Recommended)
+
+For the best experience:
+
+1. Install globally once: `speculate install --global`
+2. Install per-project as needed: `speculate install`
+
+The project-level plugin takes precedence when both are installed.
+
+### Cross-Platform Testing
+
+#### Cursor
+
+Speculate also configures Cursor via `.cursor/rules/`:
+
+```bash
+speculate install
+ls -la .cursor/rules/
+```
+
+**Expected**: Symlinks with `.mdc` extension pointing to agent-rules.
+
+Cursor users get:
+- Agent rules as context
+- No command autocomplete (Cursor limitation)
+- Must use `@` references to invoke shortcuts
+
+#### Codex
+
+Codex uses `AGENTS.md`:
+
+```bash
+speculate install
+cat AGENTS.md | head -20
+```
+
+**Expected**: Speculate header pointing to `docs/development.md` and `docs/docs-overview.md`.
+
+### Efficient Usage Patterns
+
+#### Pattern 1: Full Feature Flow
+
+The most powerful pattern is the full spec-driven flow:
+
+```
+User: "I want to add a dark mode feature"
+Claude: Using /speculate:new-plan-spec
+... creates plan spec ...
+
+User: "Create beads to implement this"
+Claude: Using /speculate:new-implementation-beads-from-spec
+... creates beads ...
+
+User: "Implement the beads"
+Claude: Using /speculate:implement-beads
+... implements each bead ...
+
+User: "Create a PR"
+Claude: Using /speculate:create-or-update-pr-with-validation-plan
+... creates PR with validation ...
+```
+
+#### Pattern 2: Quick Commit Flow
+
+For smaller changes:
+
+```
+User: "Review and commit my changes"
+Claude: Using /speculate:precommit-process
+... runs checks ...
+Claude: Using /speculate:commit-code
+... commits with good message ...
+```
+
+#### Pattern 3: Research-First
+
+For complex tasks:
+
+```
+User: "I need to understand how authentication works before adding OAuth"
+Claude: Using /speculate:new-research-brief
+... creates research brief ...
+
+User: "Now plan the OAuth integration"
+Claude: Using /speculate:new-plan-spec
+... creates plan based on research ...
+```
+
+### Token Budget Considerations
+
+The plugin adds context to Claude's prompt:
+
+| Component | Approximate Tokens |
+|-----------|-------------------|
+| Routing skill (SKILL.md) | 400-500 tokens |
+| Each command file | 200-500 tokens |
+| Reference rules (if read) | 100-300 tokens each |
+
+**Tips for efficiency**:
+- The routing skill only loads when semantic matching triggers it
+- Command files load on-demand when invoked
+- Reference rules are available but not auto-loaded
+
+### Troubleshooting
+
+#### Commands Not Appearing
+
+```bash
+# Verify plugin structure
+ls -la .claude/plugins/speculate/
+ls -la .claude/plugins/speculate/commands/
+
+# Regenerate if needed
+speculate install --force
+```
+
+#### Symlinks Broken
+
+```bash
+# Check symlink targets
+ls -la .claude/plugins/speculate/commands/ | head -5
+
+# Should show relative paths like:
+# command.md -> ../../../../docs/general/agent-shortcuts/shortcut:command.md
+```
+
+#### Skill Not Triggering
+
+Verify SKILL.md contains:
+- YAML frontmatter with `name:` and `description:`
+- Trigger table with commands
+
+```bash
+cat .claude/plugins/speculate/skills/speculate-workflow/SKILL.md | head -20
+```
+
 ## Open Questions
 
 1. **Full test suite**: Can the user run `make test` successfully in the CLI directory?
