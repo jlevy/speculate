@@ -508,3 +508,148 @@ cat .claude/plugins/speculate/skills/speculate-workflow/SKILL.md | head -20
 
 4. **Cross-platform Cursor rules**: Should shortcuts be converted to Cursor rules?
    This has significant complexity and may not be needed if teams use Claude Code.
+
+---
+
+## Appendix: Beads Comparison and Recommendations
+
+### How Beads Implements Hooks
+
+Beads (`github.com/steveyegge/beads`) is an AI-supervised issue tracker with sophisticated
+Claude Code integration. Their approach offers lessons for Speculate:
+
+#### Beads Hook Architecture
+
+```
+.claude/settings.json:
+{
+  "hooks": {
+    "SessionStart": [{ "matcher": "", "hooks": [{
+      "type": "command",
+      "command": "bash ~/.claude/hooks/session-start.sh"
+    }]}]
+  }
+}
+```
+
+The session-start.sh script runs `bd prime` which outputs rich contextual markdown:
+
+```markdown
+# Beads Workflow Context
+
+> **Context Recovery**: Run `bd prime` after compaction, clear, or new session
+
+# 🚨 SESSION CLOSE PROTOCOL 🚨
+
+**CRITICAL**: Before saying "done" or "complete", you MUST run this checklist:
+
+[ ] 1. git status              (check what changed)
+[ ] 2. git add <files>         (stage code changes)
+[ ] 3. bd sync                 (commit beads changes)
+[ ] 4. git commit -m "..."     (commit code)
+[ ] 5. bd sync                 (commit any new beads changes)
+[ ] 6. git push                (push to remote)
+
+**NEVER skip this.** Work is not done until pushed.
+
+## Core Rules
+- Track strategic work in beads (multi-session, dependencies, discovered work)
+- Use `bd create` for issues, TodoWrite for simple single-session execution
+...
+```
+
+#### Key Beads Patterns
+
+| Pattern | Beads Implementation | Speculate Equivalent |
+|---------|---------------------|---------------------|
+| Rich SessionStart | `bd prime` outputs ~1-2k tokens of context | Simple echo message (~50 tokens) |
+| Session Close Protocol | Mandatory checklist before "done" | Not implemented |
+| Adaptive Output | Different output for MCP vs CLI mode | Single static message |
+| Custom Override | `.beads/PRIME.md` replaces default | Not implemented |
+| Git Integration | pre-commit, post-merge, pre-push hooks | Not implemented |
+
+### Recommendations for v3
+
+Based on Beads patterns, consider these enhancements for Speculate:
+
+#### 1. Rich SessionStart Context
+
+**Current:**
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "echo 'Speculate workflows available. Type /speculate: to see commands.'"
+      }]
+    }]
+  }
+}
+```
+
+**Proposed (`speculate prime` command):**
+```bash
+# SessionStart hook calls:
+speculate prime
+```
+
+Output would include:
+- Available workflow commands
+- Current project state (uncommitted changes, active specs, open beads)
+- Session close protocol reminder
+- Token budget: ~500-800 tokens
+
+#### 2. Session Close Protocol
+
+Add to SKILL.md or prime output:
+
+```markdown
+# 🚨 SESSION CLOSE PROTOCOL 🚨
+
+Before saying "done", run this checklist:
+
+[ ] 1. /speculate:precommit-process  (run checks)
+[ ] 2. /speculate:commit-code        (commit changes)
+[ ] 3. /speculate:create-or-update-pr-with-validation-plan  (if PR needed)
+[ ] 4. git push                      (push to remote)
+
+Work is not done until pushed.
+```
+
+#### 3. Adaptive Context
+
+The `speculate prime` command could output different context based on:
+- Are there uncommitted changes? → Remind about commit flow
+- Is there an active spec? → Show spec status
+- Are there open beads? → List ready work
+- Is this a feature branch? → Remind about PR creation
+
+#### 4. Custom Override
+
+Support `.speculate/PRIME.md` to override default session context.
+
+### Implementation Priority
+
+| Enhancement | Effort | Value | Priority |
+|-------------|--------|-------|----------|
+| `speculate prime` command | Medium | High | v3 |
+| Session close protocol | Low | High | v3 |
+| Adaptive context | High | Medium | v4 |
+| Custom override | Low | Low | v4 |
+
+### Key Insight
+
+The fundamental difference between current Speculate and Beads:
+
+- **Speculate**: Plugin with commands + simple welcome message
+- **Beads**: Plugin with rich contextual priming that shapes agent behavior
+
+Beads' approach is more prescriptive—it injects workflow protocols that the agent
+must follow. Speculate's approach is more opt-in—workflows are available but not
+enforced.
+
+Both approaches have merit. For teams wanting more structure, adding a `speculate prime`
+command similar to `bd prime` would provide that capability while keeping the current
+lightweight approach as the default.
