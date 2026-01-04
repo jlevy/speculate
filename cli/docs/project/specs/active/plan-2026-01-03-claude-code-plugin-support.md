@@ -841,9 +841,283 @@ import json  # Add to imports
 
 ---
 
+## v1.1: Priority 1 Enhancements (Essential Before Merge)
+
+Based on ecosystem review comparing with popular plugins (Superpowers, cassler/awesome-claude-code-setup,
+jeremylongshore/claude-code-plugins-plus-skills), these improvements align Speculate with best practices.
+
+### v1.1 Features
+
+| # | Feature | Description | Status |
+|---|---------|-------------|--------|
+| 1 | **Dynamic version sync** | Plugin version should match CLI version | 🔲 TODO |
+| 2 | **Plugin README** | Add README.md to generated plugin for discoverability | 🔲 TODO |
+| 3 | **Token budget docs** | Document token overhead in SKILL.md | 🔲 TODO |
+| 4 | **Repository/homepage** | Add repository and homepage URLs to plugin.json | 🔲 TODO |
+
+### v1.1 Implementation Details
+
+#### 1. Dynamic Version Sync
+
+**Problem**: Current implementation uses hardcoded `CLAUDE_PLUGIN_VERSION = "1.0.0"`.
+
+**Solution**: Use CLI version dynamically:
+
+```python
+def _generate_plugin_json() -> str:
+    """Generate plugin.json content for the Speculate plugin."""
+    from importlib.metadata import version as get_version
+
+    try:
+        cli_version = get_version("speculate-cli")
+    except Exception:
+        cli_version = "0.0.0"
+
+    plugin_data = {
+        "name": CLAUDE_PLUGIN_NAME,
+        "version": cli_version,  # Dynamic instead of hardcoded
+        "description": CLAUDE_PLUGIN_DESCRIPTION,
+        "author": {"name": "Speculate"},
+        "repository": "https://github.com/jlevy/speculate",
+        "homepage": "https://github.com/jlevy/speculate",
+    }
+    return json.dumps(plugin_data, indent=2) + "\n"
+```
+
+**Files**: `cli/src/speculate/cli/cli_commands.py`
+
+#### 2. Plugin README Generation
+
+**Problem**: No README in generated plugin makes it harder to understand what's installed.
+
+**Solution**: Generate `README.md` in plugin root:
+
+```python
+def _generate_plugin_readme(command_count: int, skill_name: str) -> str:
+    """Generate README.md content for the Speculate plugin."""
+    return dedent(f"""
+        # Speculate Plugin for Claude Code
+
+        This plugin provides spec-driven development workflows for Claude Code.
+
+        ## What's Included
+
+        - **{command_count} commands**: Type `/speculate:` to see available commands
+        - **1 skill**: `{skill_name}` for automatic workflow detection
+
+        ## Usage
+
+        Commands are invoked as `/speculate:command-name`. For example:
+        - `/speculate:new-plan-spec` - Create a feature plan
+        - `/speculate:implement-beads` - Implement work items
+        - `/speculate:commit-code` - Commit with pre-commit checks
+
+        The routing skill automatically suggests relevant commands based on your task.
+
+        ## Source
+
+        Commands are symlinked from `docs/general/agent-shortcuts/`. Edit the source
+        files to customize behavior.
+
+        ## More Information
+
+        - Repository: https://github.com/jlevy/speculate
+        - CLI: `pip install speculate-cli`
+        """).strip() + "\n"
+```
+
+**Files**: `cli/src/speculate/cli/cli_commands.py`
+
+**Directory Structure Update**:
+```
+.claude/plugins/speculate/
+├── README.md                    ← NEW
+├── .claude-plugin/
+│   └── plugin.json
+├── commands/
+└── skills/
+```
+
+#### 3. Token Budget Documentation
+
+**Problem**: Users don't know how much context the plugin adds.
+
+**Solution**: Add token budget section to generated SKILL.md:
+
+```markdown
+## Token Budget
+
+This skill adds approximately 400-500 tokens to context when activated.
+The trigger table and workflow chains are designed to be concise while
+providing clear routing guidance.
+
+To minimize token usage:
+- The skill only activates when semantic matching triggers it
+- Detailed command instructions are in the command files (loaded on demand)
+- Keep your prompts focused on the task at hand
+```
+
+**Files**: `cli/src/speculate/cli/cli_commands.py` (update `_generate_skill_md()`)
+
+#### 4. Repository/Homepage in plugin.json
+
+**Problem**: Missing repository and homepage fields in plugin.json.
+
+**Solution**: Already shown in item 1 above - add to `_generate_plugin_json()`.
+
+---
+
+## v2: Priority 2 Enhancements (Future Release)
+
+These features add significant value but require more implementation effort.
+
+### v2 Features
+
+| # | Feature | Description | Status |
+|---|---------|-------------|--------|
+| 1 | **SessionStart hook** | Auto-display welcome message on session start | 🔲 TODO |
+| 2 | **Personal installation** | Support `--global` flag to install to `~/.claude/plugins/` | 🔲 TODO |
+| 3 | **PostToolUse hook** | Optional formatting hook after file edits | 🔲 TODO |
+| 4 | **Cross-platform support** | Generate Cursor rules from skills (with alwaysApply) | 🔲 TODO |
+| 5 | **Symlink agent-rules** | Include agent-rules as reference content in plugin | 🔲 TODO |
+
+### v2 Implementation Details
+
+#### 1. SessionStart Hook
+
+**Purpose**: Display welcome message when Claude Code starts, showing available commands.
+
+**Implementation**:
+
+```python
+def _generate_hooks_json() -> str:
+    """Generate hooks.json for lifecycle automation."""
+    hooks_data = {
+        "hooks": {
+            "SessionStart": [{
+                "matcher": "*",
+                "hooks": [{
+                    "type": "command",
+                    "command": "echo '📋 Speculate workflows available. Type /speculate: to see commands.'"
+                }]
+            }]
+        }
+    }
+    return json.dumps(hooks_data, indent=2) + "\n"
+```
+
+**Directory Structure Update**:
+```
+.claude/plugins/speculate/
+├── hooks/
+│   └── hooks.json              ← NEW
+├── ...
+```
+
+**Files**: `cli/src/speculate/cli/cli_commands.py`
+
+#### 2. Personal Installation (`--global`)
+
+**Purpose**: Allow cross-project installation to `~/.claude/plugins/speculate/`.
+
+**CLI Changes**:
+```python
+def install(
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    force: bool = False,
+    global_install: bool = False,  # NEW
+) -> None:
+    """Generate tool configs for Cursor, Claude Code, and Codex.
+
+    ...existing docstring...
+
+    Use --global to install the Claude Code plugin to ~/.claude/plugins/
+    for cross-project availability.
+    """
+```
+
+**Implementation Considerations**:
+- When `--global`, install to `~/.claude/plugins/speculate/`
+- Symlinks must use absolute paths (can't use relative paths to project docs)
+- Alternative: Copy files instead of symlink for global install
+- Need to handle updates: `speculate update --global`
+
+**Files**:
+- `cli/src/speculate/cli/cli_commands.py`
+- `cli/src/speculate/cli/cli_main.py` (add `--global` option)
+
+#### 3. PostToolUse Hook (Optional)
+
+**Purpose**: Auto-format files after Claude edits them.
+
+**Implementation**:
+```python
+def _generate_hooks_json(include_formatting: bool = False) -> str:
+    hooks_data = {
+        "hooks": {
+            "SessionStart": [/* ... */],
+        }
+    }
+
+    if include_formatting:
+        hooks_data["hooks"]["PostToolUse"] = [{
+            "matcher": "Edit|Write",
+            "hooks": [{
+                "type": "command",
+                "command": "if command -v prettier &> /dev/null; then prettier --write \"$CC_TOOL_ARG_FILE_PATH\" 2>/dev/null || true; fi"
+            }]
+        }]
+
+    return json.dumps(hooks_data, indent=2) + "\n"
+```
+
+**CLI Option**: `speculate install --with-format-hook`
+
+#### 4. Cross-Platform Support
+
+**Purpose**: Generate Cursor rules from shortcuts for teams using both tools.
+
+**Implementation**: Create `.cursor/commands/` directory with shortcuts that have
+`alwaysApply: false` so they're available but not auto-triggered.
+
+**Complexity**: Medium - requires adapting markdown format for Cursor's `.mdc` format.
+
+#### 5. Symlink Agent-Rules to Plugin
+
+**Purpose**: Include agent-rules as context available to the routing skill.
+
+**Implementation**: Add `reference/` directory in plugin with symlinks to agent-rules:
+
+```
+.claude/plugins/speculate/
+├── reference/                   ← NEW
+│   ├── automatic-shortcut-triggers.md → symlink
+│   ├── general-rules.md → symlink
+│   └── ...
+```
+
+The routing skill can then reference these for context.
+
+---
+
+## v3+: Future Enhancements (Backlog)
+
+These are tracked for future consideration but not planned for immediate implementation.
+
+| # | Feature | Description |
+|---|---------|-------------|
+| 1 | **Marketplace listing** | Publish to `ccplugins/awesome-claude-code-plugins` |
+| 2 | **MCP server** | Expose Speculate CLI as MCP tools for Claude Code |
+| 3 | **Subagents** | Specialized agents (spec-writer, code-reviewer, bead-implementer) |
+| 4 | **Domain skills** | Deep skills beyond routing (spec-driven-planning, bead-tracking) |
+| 5 | **Skill versioning** | Version skills independently for backwards compatibility |
+
+---
+
 ## Status
 
-**Implementation Complete** (2026-01-04)
+### v1: Core Implementation ✅ Complete (2026-01-04)
 
 All "Must Have" features have been implemented:
 - Added `_setup_claude_plugin()` and `_remove_claude_plugin()` functions
@@ -852,3 +1126,27 @@ All "Must Have" features have been implemented:
 - Commit: `6fd0f6d` on branch `claude/explore-repo-structure-KkIRu`
 
 See beads tracking: All 11 beads (speculate-tj4 epic + 10 task beads) are closed.
+
+### v1.1: Priority 1 Enhancements 🔲 In Progress
+
+**Epic**: `speculate-nz9` - Claude Code plugin v1.1 enhancements
+
+| Bead ID | Task | Status |
+|---------|------|--------|
+| `speculate-dc9` | Implement dynamic version sync for plugin.json | 🔲 Open |
+| `speculate-j58` | Generate README.md in plugin directory | 🔲 Open |
+| `speculate-35s` | Add token budget documentation to SKILL.md | 🔲 Open |
+| `speculate-xbc` | Add tests for v1.1 plugin enhancements | 🔲 Open |
+
+### v2: Priority 2 Enhancements 🔲 Planned
+
+**Epic**: `speculate-j49` - Claude Code plugin v2 enhancements
+
+| Bead ID | Task | Status |
+|---------|------|--------|
+| `speculate-qhg` | Implement SessionStart hook generation | 🔲 Open |
+| `speculate-hr8` | Implement --global flag for personal installation | 🔲 Open |
+| `speculate-azw` | Implement optional PostToolUse formatting hook | 🔲 Open |
+| `speculate-hos` | Add cross-platform Cursor rules generation | 🔲 Open |
+| `speculate-3we` | Symlink agent-rules to plugin reference directory | 🔲 Open |
+| `speculate-5wo` | Add tests for v2 plugin enhancements | 🔲 Open |
