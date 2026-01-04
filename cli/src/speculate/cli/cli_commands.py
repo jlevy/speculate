@@ -698,10 +698,10 @@ def _setup_claude_plugin(
                 continue
             link_path.unlink()
 
-        # Calculate relative path: commands/ is 5 levels deep from project root
+        # Calculate relative path: commands/ is 4 levels deep from project root
         # .claude/plugins/speculate/commands/file.md -> docs/.../shortcut:file.md
         relative_target = (
-            Path("..") / ".." / ".." / ".." / ".." / relative_dir / source_path.name
+            Path("..") / ".." / ".." / ".." / relative_dir / source_path.name
         )
         link_path.symlink_to(relative_target)
         linked_count += 1
