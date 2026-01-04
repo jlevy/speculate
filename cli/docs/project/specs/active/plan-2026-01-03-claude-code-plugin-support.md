@@ -118,19 +118,19 @@ The colon in source filenames (`shortcut:*.md`) is irrelevant - only the symlink
 
 **Must Have:**
 
-- [ ] Create `.claude/plugins/speculate/` directory structure
-- [ ] Generate `.claude/plugins/speculate/.claude-plugin/plugin.json`
-- [ ] Symlink all shortcuts from `docs/general/agent-shortcuts/shortcut:*.md` to commands
-- [ ] Generate routing skill at `.claude/plugins/speculate/skills/speculate-workflow/SKILL.md`
-- [ ] Update `speculate install` to call new `_setup_claude_plugin()` function
-- [ ] Update `speculate uninstall` to remove `.claude/plugins/speculate/`
-- [ ] Update `speculate status` to show Claude Code plugin status
-- [ ] Support `--include` and `--exclude` patterns for shortcuts
+- [x] Create `.claude/plugins/speculate/` directory structure
+- [x] Generate `.claude/plugins/speculate/.claude-plugin/plugin.json`
+- [x] Symlink all shortcuts from `docs/general/agent-shortcuts/shortcut:*.md` to commands
+- [x] Generate routing skill at `.claude/plugins/speculate/skills/speculate-workflow/SKILL.md`
+- [x] Update `speculate install` to call new `_setup_claude_plugin()` function
+- [x] Update `speculate uninstall` to remove `.claude/plugins/speculate/`
+- [x] Update `speculate status` to show Claude Code plugin status
+- [x] Support `--include` and `--exclude` patterns for shortcuts
 
 **Nice to Have (v2):**
 
 - [ ] Symlink agent-rules as well (for context in skill instructions)
-- [ ] Support for agent-setup shortcuts
+- [x] Support for agent-setup shortcuts (DONE - included in implementation)
 - [ ] Personal installation to `~/.claude/plugins/`
 
 **Not In Scope:**
@@ -841,5 +841,14 @@ import json  # Add to imports
 
 ---
 
-**Next Step:** Review this plan, then create implementation spec at
-`impl-2026-01-03-claude-code-plugin-support.md` with detailed phases and tasks.
+## Status
+
+**Implementation Complete** (2026-01-04)
+
+All "Must Have" features have been implemented:
+- Added `_setup_claude_plugin()` and `_remove_claude_plugin()` functions
+- Integrated into `install()`, `uninstall()`, and `status()` commands
+- Added comprehensive tests (22 new test cases)
+- Commit: `6fd0f6d` on branch `claude/explore-repo-structure-KkIRu`
+
+See beads tracking: All 11 beads (speculate-tj4 epic + 10 task beads) are closed.
