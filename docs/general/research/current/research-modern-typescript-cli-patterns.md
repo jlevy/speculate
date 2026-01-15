@@ -6,6 +6,9 @@
 
 **Related**:
 
+- [Modern Python CLI Patterns](research-modern-python-cli-patterns.md) — Equivalent
+  patterns for Python CLIs (Typer, Rich, UV)
+
 - [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md) —
   Actionable rules for CLI development
 
@@ -243,8 +246,9 @@ export class OutputManager {
 | Warnings | stderr | Always |
 | Spinners/progress | stdout | Text mode, not quiet |
 
-**Assessment**: This pattern enables Unix pipeline compatibility (`my-cli list --format
-json | jq '.items[]'`) while providing rich interactive output for terminal users.
+**Assessment**: This pattern enables Unix pipeline compatibility
+(`my-cli list --format json | jq '.items[]'`) while providing rich interactive output
+for terminal users.
 
 * * *
 
@@ -387,7 +391,8 @@ CLI tools should display accurate version information via `--version`. Use the `
 constant injected at build time via dynamic git-based versioning.
 
 For the complete versioning implementation (format, rationale, and `getGitVersion()`
-function), see [Dynamic Git-Based Versioning](research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning)
+function), see
+[Dynamic Git-Based Versioning](research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning)
 in the monorepo patterns doc.
 
 **CLI integration**:
@@ -405,11 +410,13 @@ const program = new Command()
 **Key points**:
 
 - Use the exported `VERSION` constant from your library entry point
+
 - Commander.js reserves `-V` and `--version` by default
+
 - Avoid `-v` alias for other options (conflicts with version in some setups)
 
-**Assessment**: Centralizing version in the library (injected at build time) ensures
-CLI and programmatic consumers see the same version.
+**Assessment**: Centralizing version in the library (injected at build time) ensures CLI
+and programmatic consumers see the same version.
 
 * * *
 
@@ -429,7 +436,8 @@ const program = new Command()
   .option('--dry-run', 'Show what would be done without making changes')
   .option('--verbose', 'Enable verbose output')
   .option('--quiet', 'Suppress non-essential output')
-  .option('--format <format>', 'Output format: text or json', 'text');
+  .option('--format <format>', 'Output format: text or json', 'text')
+  .option('--color <when>', 'Colorize output: auto, always, never', 'auto');
 
 // Access via getCommandContext() in any command:
 export function getCommandContext(command: Command): CommandContext {
@@ -439,8 +447,39 @@ export function getCommandContext(command: Command): CommandContext {
     verbose: opts.verbose ?? false,
     quiet: opts.quiet ?? false,
     format: opts.format ?? 'text',
+    color: opts.color ?? 'auto',
   };
 }
+```
+
+**Color output handling:**
+
+The `--color` option follows the Unix convention used by `git`, `ls`, `grep`:
+
+- `auto` (default): Enable colors when stdout is a TTY, disable when piped/redirected
+
+- `always`: Force colors (useful for `less -R` or capturing colored output)
+
+- `never`: Disable colors entirely
+
+```ts
+// lib/colors.ts
+import { isatty } from 'tty';
+
+export function shouldColorize(colorOption: 'auto' | 'always' | 'never'): boolean {
+  if (colorOption === 'always') return true;
+  if (colorOption === 'never') return false;
+  return isatty(process.stdout.fd);
+}
+```
+
+**Alternative: `--json` flag:**
+
+Some CLIs use a simpler `--json` boolean flag instead of `--format`. This is less
+extensible but more concise for the common case:
+
+```ts
+.option('--json', 'Output as JSON')
 ```
 
 **Assessment**: Centralizing global options ensures consistency and prevents option name
@@ -450,7 +489,7 @@ conflicts across commands.
 
 ### 9. Avoid Single-Letter Option Aliases
 
-**Status**: Recommended
+**Status**: Recommended (with exceptions)
 
 **Details**:
 
@@ -469,8 +508,22 @@ program
   .option('-v, --verbose', 'Verbose output')           // -v used by --version
 ```
 
+**Exception: Backward compatibility**
+
+When building a drop-in replacement for an existing CLI, preserve single-letter aliases
+to maintain compatibility with existing scripts and muscle memory:
+
+```ts
+// OK when matching existing CLI (e.g., replacing `bd` with `cead`)
+.option('-t, --type <type>', 'Issue type')      // Matches original CLI
+.option('-p, --priority <n>', 'Priority level') // Matches original CLI
+```
+
+Document which aliases exist for compatibility vs which are native to your CLI.
+
 **Assessment**: Single-letter aliases seem convenient but cause conflicts as CLIs grow.
 Full names are self-documenting and avoid collisions.
+However, backward compatibility with an existing CLI is a valid reason to use them.
 
 * * *
 
@@ -650,19 +703,22 @@ which is especially valuable for CLIs with many subcommands.
 
 5. **Pair text and JSON formatters** for each data domain
 
-6. **Use build-time VERSION constant** from library (see [monorepo patterns](research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning))
+6. **Use build-time VERSION constant** from library (see
+   [monorepo patterns](research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning))
 
 7. **Define global options at program level** only
 
-8. **Avoid single-letter aliases** to prevent conflicts
+8. **Support `--color auto|always|never`** following Unix conventions (git, ls, grep)
 
-9. **Show help after errors** for better UX
+9. **Avoid single-letter aliases** to prevent conflicts (exception: backward compat)
 
-10. **Route output correctly**: data to stdout, errors to stderr
+10. **Show help after errors** for better UX
 
-11. **Support --dry-run** for safe testing of destructive commands
+11. **Route output correctly**: data to stdout, errors to stderr
 
-12. **Add a docs command** for comprehensive CLI documentation
+12. **Support --dry-run** for safe testing of destructive commands
+
+13. **Add a docs command** for comprehensive CLI documentation
 
 * * *
 
@@ -679,6 +735,9 @@ which is especially valuable for CLIs with many subcommands.
 - [cli-table3](https://github.com/cli-table/cli-table3) — Table formatting
 
 ### Related Documentation
+
+- [Modern Python CLI Patterns](research-modern-python-cli-patterns.md) — Equivalent
+  patterns for Python CLIs (Typer, Rich, UV)
 
 - [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md) —
   Actionable rules for CLI development
