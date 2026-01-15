@@ -356,20 +356,20 @@ docs/
 
 ### General Docs: Rules Example
 
-<p align="center"> <a href="images/cursor_docs_general_rules.png"><img
-src="images/cursor_docs_general_rules.png" width="750" alt="General docs example"></a>
+<p align="center">
+<a href="images/cursor_docs_general_rules.png"><img src="images/cursor_docs_general_rules.png" width="750" alt="General docs example"></a>
 </p>
 
 ### Project Docs: Research Brief Example
 
-<p align="center"> <a href="images/cursor_docs_project_research.png"><img
-src="images/cursor_docs_project_research.png" width="750" alt="Project research doc
-example"></a> </p>
+<p align="center">
+<a href="images/cursor_docs_project_research.png"><img src="images/cursor_docs_project_research.png" width="750" alt="Project research doc example"></a>
+</p>
 
 ### Project Docs: Spec Example
 
-<p align="center"> <a href="images/cursor_docs_project_specs.png"><img
-src="images/cursor_docs_project_specs.png" width="750" alt="Project spec example"></a>
+<p align="center">
+<a href="images/cursor_docs_project_specs.png"><img src="images/cursor_docs_project_specs.png" width="750" alt="Project spec example"></a>
 </p>
 
 ## More Take-Aways

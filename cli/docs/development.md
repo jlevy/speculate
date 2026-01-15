@@ -90,8 +90,9 @@ extensions:
 
 ## Releasing to PyPI
 
-The CLI is published to PyPI as `speculate-cli` (users install with `pip install
-speculate-cli` or `uv add speculate-cli`). The executable is named `speculate`.
+The CLI is published to PyPI as `speculate-cli` (users install with
+`pip install speculate-cli` or `uv add speculate-cli`). The executable is named
+`speculate`.
 
 **Versioning:** This project uses
 [uv-dynamic-versioning](https://github.com/ninoseki/uv-dynamic-versioning/) to

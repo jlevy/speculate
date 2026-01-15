@@ -4,8 +4,9 @@ This is how to publish a Python package to [**PyPI**](https://pypi.org/) from Gi
 Actions, when using the
 [**simple-modern-uv**](https://github.com/jlevy/simple-modern-uv) template.
 
-Thanks to [the dynamic versioning
-plugin](https://github.com/ninoseki/uv-dynamic-versioning/) and the
+Thanks to
+[the dynamic versioning plugin](https://github.com/ninoseki/uv-dynamic-versioning/) and
+the
 [`publish.yml` workflow](https://github.com/jlevy/simple-modern-uv/blob/main/template/.github/workflows/publish.yml),
 you can simply create tagged releases (using standard format for the tag name, e.g.
 `v0.1.0`) on GitHub and the tag will trigger a release build, which then uploads it to

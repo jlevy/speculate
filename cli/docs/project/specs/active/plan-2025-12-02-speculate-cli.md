@@ -354,8 +354,8 @@ Not applicable — this is a new tool with no existing users.
 
   - Remove speculate header from CLAUDE.md and AGENTS.md (preserves other content)
 
-  - Header pattern: lines matching `IMPORTANT: You MUST read .*development\.md.*` followed by
-    `(This project uses Speculate project structure.)`
+  - Header pattern: lines matching `IMPORTANT: You MUST read .*development\.md.*`
+    followed by `(This project uses Speculate project structure.)`
 
   - If file becomes empty after header removal, delete the file
 
@@ -1417,9 +1417,10 @@ These decisions were made during spec review:
    to filter which rules are linked to `.cursor/rules/`.
 
 5. **Uninstall is non-destructive** — The `uninstall` command removes only the speculate
-   header from CLAUDE.md and AGENTS.md (preserving other content), removes .cursor/rules/
-   symlinks, and removes .speculate/settings.yml. It does NOT remove docs/ or
-   .speculate/copier-answers.yml. Uses regex pattern to match header precisely:
+   header from CLAUDE.md and AGENTS.md (preserving other content), removes
+   .cursor/rules/ symlinks, and removes .speculate/settings.yml.
+   It does NOT remove docs/ or .speculate/copier-answers.yml.
+   Uses regex pattern to match header precisely:
    `^IMPORTANT: You MUST read .*development\.md.*\n\(This project uses Speculate project structure\.\)\n*`
 
 * * *

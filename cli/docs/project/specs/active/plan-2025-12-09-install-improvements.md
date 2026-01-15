@@ -267,7 +267,7 @@ The argparse already has `--force` for uninstall; add it to install as well.
 
 - [x] Pass force argument through to install()
 
-- [x] Create CLAUDE.md as symlink to AGENTS.md when CLAUDE.md doesn't exist
+- [x] Create CLAUDE.md as symlink to AGENTS.md when CLAUDE.md doesn’t exist
 
 ### Phase 2: Merge Agent Rules from Multiple Sources
 

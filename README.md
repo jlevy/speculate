@@ -1,7 +1,8 @@
 # Speculate
 
-👉 *Start with **[Lessons from 500K Lines of Spec-Driven Agent
-Coding](about/lessons_in_spec_coding.md)** for motivation on how this works.*
+👉 *Start with
+**[Lessons from 500K Lines of Spec-Driven Agent Coding](about/lessons_in_spec_coding.md)**
+for motivation on how this works.*
 
 ⚠️ *This is alpha quality!
 Although they’re imperfect and evolving, these workflows and prompts seem to be very
