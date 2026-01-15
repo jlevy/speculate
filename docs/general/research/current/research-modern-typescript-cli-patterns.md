@@ -125,7 +125,8 @@ program
 
 **Behavior contract**:
 
-- If `--non-interactive` is set (or stdin is not a TTY), **never prompt**
+- If `--non-interactive` is set, stdin is not a TTY, or `CI` env var is set, **never
+  prompt**
 
 - If required values are missing, exit with code `2` and a structured error:
 
@@ -142,6 +143,19 @@ if (!options.name && !process.stdin.isTTY) {
 ```
 
 - `--yes` skips confirmations but does **not** conjure missing required fields
+
+- Respect `CI` environment variable (set by GitHub Actions, GitLab CI, CircleCI, Travis,
+  and most CI systems):
+
+```ts
+function isCI(): boolean {
+  return Boolean(process.env.CI);
+}
+
+function isInteractive(): boolean {
+  return process.stdin.isTTY && !isCI();
+}
+```
 
 - Support `NO_COLOR` environment variable (see [no-color.org](https://no-color.org/)):
 
@@ -175,6 +189,45 @@ const examplesCommand = new Command('examples')
     console.log(JSON.stringify(examples, null, 2));
   });
 ```
+
+**Critical: Disable spinners and progress output for agents**
+
+Spinners and progress indicators are a severe antipattern in non-interactive contexts.
+When an AI coding agent (Claude Code, Cursor, Copilot, etc.)
+invokes a CLI, any spinner output—even partial line rewrites via ANSI escape codes—gets
+captured as text and floods the agent’s context window.
+A single long-running command with an active spinner can generate thousands of lines of
+captured output, rapidly exhausting context and degrading agent performance.
+
+```ts
+// ALWAYS check TTY before showing progress
+if (!process.stderr.isTTY) {
+  // No spinners, no progress bars, no animations
+}
+
+// Provide explicit flag for agent-driven invocations
+program.option('--no-progress', 'Disable all progress output (for agent/script use)');
+
+// In OutputManager, respect both TTY detection AND explicit flag
+spinner(message: string): Spinner {
+  if (this.noProgress || !process.stderr.isTTY) {
+    return { message: () => {}, stop: () => {} };  // Silent no-op
+  }
+  // ...create actual spinner
+}
+```
+
+Key requirements:
+
+- **Always check `isTTY`** before any spinner/progress output
+
+- **Provide `--no-progress` flag** for explicit disabling (agents may run in
+  pseudo-TTYs)
+
+- **Default to silent** when in doubt—missing progress output is far better than flooded
+  context
+
+- **Never use carriage returns (`\r`) or ANSI cursor movement** in non-TTY mode
 
 **Assessment**: Explicit automation support enables CLIs to work reliably with AI
 agents, CI pipelines, and scripted workflows without TTY hacks or brittle parsing.
@@ -579,13 +632,14 @@ const program = new Command()
 // Access via getCommandContext() in any command:
 export function getCommandContext(command: Command): CommandContext {
   const opts = command.optsWithGlobals();
+  const isCI = Boolean(process.env.CI);
   return {
     dryRun: opts.dryRun ?? false,
     verbose: opts.verbose ?? false,
     quiet: opts.quiet ?? false,
     format: opts.format ?? 'text',
     color: opts.color ?? 'auto',
-    nonInteractive: opts.nonInteractive ?? !process.stdin.isTTY,
+    nonInteractive: opts.nonInteractive ?? !process.stdin.isTTY ?? isCI,
     yes: opts.yes ?? false,
   };
 }
@@ -895,40 +949,44 @@ Use `--format json` for assertions to avoid brittle text parsing.
 
 ## Best Practices Summary
 
-1. **Support agent/automation modes** with `--non-interactive` and `--yes` flags
+1. **Support agent/automation modes** with `--non-interactive`, `--yes`, and
+   `--no-progress` flags; also respect `CI` env var
 
-2. **Use Base Command pattern** to eliminate boilerplate across commands
+2. **Disable spinners/progress in non-TTY** — agent context window flooding is a severe
+   antipattern
 
-3. **Support dual output modes** (text, JSON, jsonl) through OutputManager
+3. **Use Base Command pattern** to eliminate boilerplate across commands
 
-4. **Throw typed errors** (CLIError), handle exits only at entrypoint
+4. **Support dual output modes** (text, JSON, jsonl) through OutputManager
 
-5. **Use standard exit codes**: 0 success, 1 error, 2 validation, 130 interrupted
+5. **Throw typed errors** (CLIError), handle exits only at entrypoint
 
-6. **Route output correctly**: data to stdout, spinners/errors to stderr
+6. **Use standard exit codes**: 0 success, 1 error, 2 validation, 130 interrupted
 
-7. **Separate handlers from command definitions** for testability
+7. **Route output correctly**: data to stdout, spinners/errors to stderr
 
-8. **Use named option types** with coercion for TypeScript safety
+8. **Separate handlers from command definitions** for testability
 
-9. **Pair text and JSON formatters** for each data domain
+9. **Use named option types** with coercion for TypeScript safety
 
-10. **Use build-time VERSION constant** from library (see
+10. **Pair text and JSON formatters** for each data domain
+
+11. **Use build-time VERSION constant** from library (see
     [monorepo patterns](research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning))
 
-11. **Define global options at program level** only
+12. **Define global options at program level** only
 
-12. **Support `--color auto|always|never`** and respect `NO_COLOR` env var
+13. **Support `--color auto|always|never`** and respect `NO_COLOR` env var
 
-13. **Avoid single-letter aliases** to prevent conflicts (exception: backward compat)
+14. **Avoid single-letter aliases** to prevent conflicts (exception: backward compat)
 
-14. **Show help after errors** for better UX
+15. **Show help after errors** for better UX
 
-15. **Support --dry-run** for safe testing of destructive commands
+16. **Support --dry-run** for safe testing of destructive commands
 
-16. **Test CLI as subprocess** verifying exit codes, stdout JSON validity, stderr errors
+17. **Test CLI as subprocess** verifying exit codes, stdout JSON validity, stderr errors
 
-17. **Add docs/schema/examples commands** for human and machine documentation
+18. **Add docs/schema/examples commands** for human and machine documentation
 
 * * *
 

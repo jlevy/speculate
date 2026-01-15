@@ -136,7 +136,8 @@ def main(
 
 **Behavior contract**:
 
-- If `--non-interactive` is set (or stdin is not a TTY), **never prompt**
+- If `--non-interactive` is set, stdin is not a TTY, or `CI` env var is set, **never
+  prompt**
 
 - If required values are missing, exit with code `2` and an actionable error:
 
@@ -157,6 +158,19 @@ def require_input(value: str | None, field: str, ctx: dict) -> str:
 
 - `--yes` skips confirmations but does **not** conjure missing required fields
 
+- Respect `CI` environment variable (set by GitHub Actions, GitLab CI, CircleCI, Travis,
+  and most CI systems):
+
+```python
+import os
+
+def is_ci() -> bool:
+    return bool(os.environ.get("CI"))
+
+def is_interactive() -> bool:
+    return sys.stdin.isatty() and not is_ci()
+```
+
 - Support `NO_COLOR` environment variable (see [no-color.org](https://no-color.org/))
 
 **Self-documentation for agents** (optional but high-value):
@@ -174,6 +188,49 @@ def examples_command(command_name: str) -> None:
     examples = get_command_examples(command_name)
     print(json.dumps(examples, indent=2))
 ```
+
+**Critical: Disable spinners and progress output for agents**
+
+Spinners and progress indicators are a severe antipattern in non-interactive contexts.
+When an AI coding agent (Claude Code, Cursor, Copilot, etc.)
+invokes a CLI, any spinner output—even partial line rewrites via ANSI escape codes—gets
+captured as text and floods the agent’s context window.
+A single long-running command with an active spinner can generate thousands of lines of
+captured output, rapidly exhausting context and degrading agent performance.
+
+```python
+# ALWAYS check TTY before showing progress
+if not sys.stderr.isatty():
+    # No spinners, no progress bars, no animations
+    pass
+
+# Provide explicit flag for agent-driven invocations
+@app.callback()
+def main(
+    no_progress: Annotated[
+        bool, typer.Option("--no-progress", help="Disable progress output (for agent/script use)")
+    ] = False,
+) -> None:
+    ctx.obj["no_progress"] = no_progress
+
+# In OutputManager, respect both TTY detection AND explicit flag
+def spinner(self, message: str) -> Progress | None:
+    if self.no_progress or not sys.stderr.isatty():
+        return None  # Silent no-op
+    # ...create actual spinner
+```
+
+Key requirements:
+
+- **Always check `isatty()`** before any spinner/progress output
+
+- **Provide `--no-progress` flag** for explicit disabling (agents may run in
+  pseudo-TTYs)
+
+- **Default to silent** when in doubt—missing progress output is far better than flooded
+  context
+
+- **Never use carriage returns (`\r`) or ANSI cursor movement** in non-TTY mode
 
 **Assessment**: Explicit automation support enables CLIs to work reliably with AI
 agents, CI pipelines, and scripted workflows without TTY hacks or brittle parsing.
@@ -866,12 +923,13 @@ def main(
 ) -> None:
     """My CLI tool for managing resources."""
     ctx.ensure_object(dict)
+    is_ci = bool(os.environ.get("CI"))
     ctx.obj["dry_run"] = dry_run
     ctx.obj["verbose"] = verbose
     ctx.obj["quiet"] = quiet
     ctx.obj["format"] = format
     ctx.obj["color"] = color
-    ctx.obj["non_interactive"] = non_interactive or not sys.stdin.isatty()
+    ctx.obj["non_interactive"] = non_interactive or not sys.stdin.isatty() or is_ci
     ctx.obj["yes"] = yes
 
 
@@ -1327,38 +1385,42 @@ especially valuable for CLIs with many subcommands.
 
 ## Best Practices Summary
 
-1. **Support agent/automation modes** with `--non-interactive` and `--yes` flags
+1. **Support agent/automation modes** with `--non-interactive`, `--yes`, and
+   `--no-progress` flags; also respect `CI` env var
 
-2. **Use the modern tooling stack** (uv, Typer/argparse+rich_argparse, Rich, Ruff,
+2. **Disable spinners/progress in non-TTY** — agent context window flooding is a severe
+   antipattern
+
+3. **Use the modern tooling stack** (uv, Typer/argparse+rich_argparse, Rich, Ruff,
    BasedPyright)
 
-3. **Use Base Command pattern** to eliminate boilerplate across commands
+4. **Use Base Command pattern** to eliminate boilerplate across commands
 
-4. **Support dual output modes** (text, JSON, jsonl) through OutputManager
+5. **Support dual output modes** (text, JSON, jsonl) through OutputManager
 
-5. **Raise CLIError exceptions**, handle exits only at entrypoint
+6. **Raise CLIError exceptions**, handle exits only at entrypoint
 
-6. **Use standard exit codes**: 0 success, 1 error, 2 validation, 130 interrupted
+7. **Use standard exit codes**: 0 success, 1 error, 2 validation, 130 interrupted
 
-7. **Route output correctly**: data to stdout, spinners/errors to stderr
+8. **Route output correctly**: data to stdout, spinners/errors to stderr
 
-8. **Separate handlers from command definitions** for testability
+9. **Separate handlers from command definitions** for testability
 
-9. **Use TypedDict or dataclasses** for type-safe options
+10. **Use TypedDict or dataclasses** for type-safe options
 
-10. **Pair text and JSON formatters** for each data domain
+11. **Pair text and JSON formatters** for each data domain
 
-11. **Use git-based versioning** via uv-dynamic-versioning
+12. **Use git-based versioning** via uv-dynamic-versioning
 
-12. **Define global options at app level** using Typer’s callback
+13. **Define global options at app level** using Typer’s callback
 
-13. **Support `--color auto|always|never`** and respect `NO_COLOR` env var
+14. **Support `--color auto|always|never`** and respect `NO_COLOR` env var
 
-14. **Support --dry-run** for safe testing of destructive commands
+15. **Support --dry-run** for safe testing of destructive commands
 
-15. **Test with CliRunner** for isolated, fast tests
+16. **Test with CliRunner** for isolated, fast tests
 
-16. **Add docs/schema/examples commands** for human and machine documentation
+17. **Add docs/schema/examples commands** for human and machine documentation
 
 * * *
 
