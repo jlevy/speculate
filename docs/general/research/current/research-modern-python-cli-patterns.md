@@ -102,7 +102,85 @@ The `src` layout prevents import confusion during development.
 
 * * *
 
-### 2. Modern Tooling Stack
+### 2. Agent & CI Compatibility
+
+**Status**: Strongly Recommended
+
+**Details**:
+
+Modern CLIs must work reliably in three execution contexts:
+
+| Mode | Context | Behavior |
+| --- | --- | --- |
+| **Interactive (TTY)** | Human at terminal | Prompts, spinners, colored output allowed |
+| **Non-interactive (headless)** | CI, scripts, agent runners | No prompts, deterministic output, fail-fast |
+| **Protocol mode** | MCP/JSON-RPC adapters | Structured I/O only (future extension) |
+
+**Key flags for automation**:
+
+```python
+@app.callback()
+def main(
+    ctx: typer.Context,
+    non_interactive: Annotated[
+        bool, typer.Option("--non-interactive", help="Disable prompts, fail if input required")
+    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Assume yes to confirmations")] = False,
+    format: Annotated[str, typer.Option(help="Output format: text, json, or jsonl")] = "text",
+) -> None:
+    ctx.ensure_object(dict)
+    ctx.obj["non_interactive"] = non_interactive or not sys.stdin.isatty()
+    ctx.obj["yes"] = yes
+    ctx.obj["format"] = format
+```
+
+**Behavior contract**:
+
+- If `--non-interactive` is set (or stdin is not a TTY), **never prompt**
+
+- If required values are missing, exit with code `2` and an actionable error:
+
+```python
+from .exceptions import ValidationError
+
+def require_input(value: str | None, field: str, ctx: dict) -> str:
+    """Get required input, failing in non-interactive mode if missing."""
+    if value:
+        return value
+    if ctx.get("non_interactive") or not sys.stdin.isatty():
+        raise ValidationError(
+            f"Missing required input: {field}",
+            hint=f"Provide --{field} or run interactively",
+        )
+    return questionary.text(f"{field}:").ask() or ""
+```
+
+- `--yes` skips confirmations but does **not** conjure missing required fields
+
+- Support `NO_COLOR` environment variable (see [no-color.org](https://no-color.org/))
+
+**Self-documentation for agents** (optional but high-value):
+
+```python
+@app.command("schema")
+def schema_command(command_name: str) -> None:
+    """Output JSON Schema for command inputs."""
+    schema = get_command_schema(command_name)
+    print(json.dumps(schema, indent=2))
+
+@app.command("examples")
+def examples_command(command_name: str) -> None:
+    """Output example invocations as JSON."""
+    examples = get_command_examples(command_name)
+    print(json.dumps(examples, indent=2))
+```
+
+**Assessment**: Explicit automation support enables CLIs to work reliably with AI
+agents, CI pipelines, and scripted workflows without TTY hacks or brittle parsing.
+
+* * *
+
+### 3. Modern Tooling Stack
 
 **Status**: Strongly Recommended
 
@@ -110,9 +188,9 @@ The `src` layout prevents import confusion during development.
 
 Use this modern tooling stack for Python CLI development:
 
-| Tool | Purpose | Replaces |
+| Tool | Purpose | Can Replace |
 | --- | --- | --- |
-| [uv](https://docs.astral.sh/uv/) | Package management, venvs, Python versions | pip, poetry, pyenv, virtualenv |
+| [uv](https://docs.astral.sh/uv/) | Package management, venvs, Python versions | pip, poetry, pyenv, virtualenv (in most workflows) |
 | [Rich](https://rich.readthedocs.io/) | Terminal output, tables, progress | colorama, tabulate |
 | [Ruff](https://docs.astral.sh/ruff/) | Linting and formatting | black, flake8, isort |
 | [BasedPyright](https://docs.basedpyright.com/) | Type checking | mypy |
@@ -144,9 +222,14 @@ parser = ArgumentParser(
     formatter_class=RichHelpFormatter,
 )
 parser.add_argument("name", help="Name to greet")
-parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+parser.add_argument("--verbose", action="store_true", help="Verbose output")
 args = parser.parse_args()
 ```
+
+**Note**: Prefer long option names (e.g., `--verbose`) over single-letter aliases (e.g.,
+`-v`) in new CLIs to avoid conflicts.
+Single-letter aliases are acceptable when maintaining backward compatibility with
+existing tools.
 
 For enhanced readability (paragraph preservation, markdown support, smart width):
 
@@ -242,7 +325,7 @@ for complex CLIs with many commands.
 
 * * *
 
-### 3. Base Command Pattern
+### 4. Base Command Pattern
 
 **Status**: Strongly Recommended
 
@@ -267,6 +350,7 @@ from typing import TypeVar, Callable, Any
 from typer import Context
 from .output_manager import OutputManager, OutputFormat
 from .context import CommandContext, get_command_context
+from .exceptions import CLIError
 
 T = TypeVar("T")
 
@@ -290,12 +374,17 @@ class BaseCommand:
         action: Callable[[], T],
         error_message: str,
     ) -> T:
-        """Execute action with consistent error handling."""
+        """Execute action with consistent error handling.
+
+        Raises CLIError instead of SystemExit - exit handled at entrypoint.
+        """
         try:
             return action()
+        except CLIError:
+            raise  # Re-raise CLI errors as-is
         except Exception as e:
             self.output.error(error_message, e)
-            raise SystemExit(1)
+            raise CLIError(error_message) from e
 
     def check_dry_run(self, message: str, details: dict[str, Any] | None = None) -> bool:
         """Check if in dry-run mode and log accordingly."""
@@ -320,13 +409,42 @@ class MyCommandHandler(BaseCommand):
         self.output.data(result, lambda: display_result(result, self.ctx))
 ```
 
+**CLI entrypoint** (single place for exit handling):
+
+```python
+# cli.py
+import signal
+import typer
+from .exceptions import CLIError, UserCancelled
+
+app = typer.Typer()
+
+def main() -> None:
+    """CLI entrypoint with centralized error handling."""
+    try:
+        app()
+    except UserCancelled as e:
+        # User cancelled - not an error
+        raise typer.Exit(e.exit_code)
+    except CLIError as e:
+        # All CLI errors handled here
+        raise typer.Exit(e.exit_code)
+    except KeyboardInterrupt:
+        print("\nInterrupted", file=sys.stderr)
+        raise typer.Exit(130)  # 128 + SIGINT(2)
+
+if __name__ == "__main__":
+    main()
+```
+
 **Assessment**: The Base Command pattern dramatically reduces boilerplate.
 New commands inherit consistent behavior for error handling, dry-run support, and output
-formatting.
+formatting. Throwing `CLIError` instead of calling `sys.exit()` or `raise SystemExit()`
+improves testability and ensures proper resource cleanup.
 
 * * *
 
-### 4. Dual Output Mode (Text + JSON)
+### 5. Dual Output Mode (Text + JSON)
 
 **Status**: Strongly Recommended
 
@@ -339,12 +457,26 @@ that handles format switching transparently:
 # lib/output_manager.py
 from typing import Literal, TypeVar, Callable, Any
 import json
+import os
 import sys
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-OutputFormat = Literal["text", "json"]
+OutputFormat = Literal["text", "json", "jsonl"]
+ColorOption = Literal["auto", "always", "never"]
 T = TypeVar("T")
+
+
+def _create_console(color: ColorOption, stderr: bool = False) -> Console:
+    """Create a Rich Console with appropriate color settings."""
+    # Respect NO_COLOR env var (https://no-color.org/)
+    no_color = bool(os.environ.get("NO_COLOR")) and color != "always"
+    force_terminal = color == "always"
+    return Console(
+        stderr=stderr,
+        force_terminal=force_terminal,
+        no_color=no_color or color == "never",
+    )
 
 
 class OutputManager:
@@ -353,6 +485,7 @@ class OutputManager:
     def __init__(
         self,
         format: OutputFormat = "text",
+        color: ColorOption = "auto",
         quiet: bool = False,
         verbose: bool = False,
         **kwargs: Any,
@@ -360,13 +493,15 @@ class OutputManager:
         self.format = format
         self.quiet = quiet
         self.verbose = verbose
-        self._console = Console()
-        self._err_console = Console(stderr=True)
+        self._console = _create_console(color)
+        self._err_console = _create_console(color, stderr=True)
 
     def data(self, data: T, text_formatter: Callable[[T], None] | None = None) -> None:
         """Output structured data - always goes to stdout."""
         if self.format == "json":
             print(json.dumps(data, indent=2, default=str))
+        elif self.format == "jsonl":
+            print(json.dumps({"type": "result", "data": data}, default=str))
         elif text_formatter:
             text_formatter(data)
 
@@ -382,15 +517,15 @@ class OutputManager:
 
     def warning(self, message: str) -> None:
         """Warnings - always stderr, always shown."""
-        if self.format == "json":
-            print(json.dumps({"warning": message}), file=sys.stderr)
+        if self.format in ("json", "jsonl"):
+            print(json.dumps({"type": "warning", "message": message}), file=sys.stderr)
         else:
             self._err_console.print(f"[yellow]⚠[/yellow] {message}")
 
     def error(self, message: str, err: Exception | None = None) -> None:
         """Errors - always stderr, always shown."""
-        if self.format == "json":
-            error_data = {"error": message}
+        if self.format in ("json", "jsonl"):
+            error_data: dict[str, Any] = {"type": "error", "message": message}
             if err:
                 error_data["details"] = str(err)
             print(json.dumps(error_data), file=sys.stderr)
@@ -401,8 +536,8 @@ class OutputManager:
 
     def dry_run(self, message: str, details: dict[str, Any] | None = None) -> None:
         """Dry-run output - shows what would be done."""
-        if self.format == "json":
-            print(json.dumps({"dry_run": message, "details": details}))
+        if self.format in ("json", "jsonl"):
+            print(json.dumps({"type": "dry_run", "message": message, "details": details}))
         else:
             self._console.print(f"[cyan]DRY-RUN:[/cyan] {message}")
             if details:
@@ -410,12 +545,16 @@ class OutputManager:
                     self._console.print(f"  [dim]{key}:[/dim] {value}")
 
     def spinner(self, message: str) -> Progress | None:
-        """Spinner - returns None in JSON/quiet mode."""
-        if self.format == "text" and not self.quiet:
+        """Spinner - returns None in JSON/quiet mode or non-TTY.
+
+        Spinners go to stderr to keep stdout clean for pipeable data.
+        """
+        if self.format == "text" and not self.quiet and sys.stderr.isatty():
             progress = Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
-                console=self._console,
+                console=self._err_console,  # Use stderr for spinners
+                transient=True,  # Don't leave artifacts
             )
             progress.add_task(message, total=None)
             return progress
@@ -430,7 +569,11 @@ class OutputManager:
 | Success messages | stdout | Text mode, not quiet |
 | Errors | stderr | Always |
 | Warnings | stderr | Always |
-| Spinners/progress | stdout | Text mode, not quiet |
+| Spinners/progress | stderr | Text mode, TTY only |
+
+**Note**: Spinners and progress indicators go to **stderr** to keep stdout clean for
+pipeable data. Disable them entirely when stderr is not a TTY (prevents corruption in
+`my-cli list | jq ...` scenarios).
 
 **Assessment**: This pattern enables Unix pipeline compatibility
 (`my-cli list --format json | jq '.items[]'`) while providing rich interactive output
@@ -438,7 +581,7 @@ for terminal users.
 
 * * *
 
-### 5. Handler + Command Structure
+### 6. Handler + Command Structure
 
 **Status**: Recommended
 
@@ -501,7 +644,7 @@ The handler class is testable in isolation.
 
 * * *
 
-### 6. Typed Options with TypedDict
+### 7. Typed Options with TypedDict
 
 **Status**: Recommended
 
@@ -551,7 +694,7 @@ Worth the small overhead of maintaining definitions.
 
 * * *
 
-### 7. Formatter Pattern
+### 8. Formatter Pattern
 
 **Status**: Recommended
 
@@ -619,7 +762,7 @@ The JSON formatter defines the contract for machine consumers.
 
 * * *
 
-### 8. Version Handling
+### 9. Version Handling
 
 **Status**: Recommended
 
@@ -690,7 +833,7 @@ package metadata. The version is always accurate.
 
 * * *
 
-### 9. Global Options
+### 10. Global Options
 
 **Status**: Recommended
 
@@ -701,6 +844,7 @@ Define global options once at the app level using Typer’s callback:
 ```python
 # cli.py
 from typing import Annotated, Literal
+import sys
 import typer
 from .lib.context import set_global_context
 
@@ -715,8 +859,10 @@ def main(
     dry_run: Annotated[bool, typer.Option(help="Show what would be done")] = False,
     verbose: Annotated[bool, typer.Option(help="Enable verbose output")] = False,
     quiet: Annotated[bool, typer.Option(help="Suppress non-essential output")] = False,
-    format: Annotated[str, typer.Option(help="Output format: text or json")] = "text",
+    format: Annotated[str, typer.Option(help="Output format: text, json, or jsonl")] = "text",
     color: Annotated[ColorOption, typer.Option(help="Colorize output: auto, always, never")] = "auto",
+    non_interactive: Annotated[bool, typer.Option("--non-interactive", help="Disable prompts")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Assume yes to confirmations")] = False,
 ) -> None:
     """My CLI tool for managing resources."""
     ctx.ensure_object(dict)
@@ -725,6 +871,8 @@ def main(
     ctx.obj["quiet"] = quiet
     ctx.obj["format"] = format
     ctx.obj["color"] = color
+    ctx.obj["non_interactive"] = non_interactive or not sys.stdin.isatty()
+    ctx.obj["yes"] = yes
 
 
 # Access in commands via context:
@@ -737,6 +885,8 @@ def get_command_context(ctx: typer.Context) -> dict[str, Any]:
         "quiet": obj.get("quiet", False),
         "format": obj.get("format", "text"),
         "color": obj.get("color", "auto"),
+        "non_interactive": obj.get("non_interactive", False),
+        "yes": obj.get("yes", False),
     }
 ```
 
@@ -750,8 +900,12 @@ The `--color` option follows the Unix convention used by `git`, `ls`, `grep`:
 
 - `never`: Disable colors entirely
 
+Also respect the `NO_COLOR` environment variable (see
+[no-color.org](https://no-color.org/)):
+
 ```python
 # lib/colors.py
+import os
 import sys
 from typing import Literal
 
@@ -759,7 +913,10 @@ ColorOption = Literal["auto", "always", "never"]
 
 
 def should_colorize(color_option: ColorOption) -> bool:
-    """Determine if output should be colorized based on --color option."""
+    """Determine if output should be colorized based on --color option and NO_COLOR."""
+    # NO_COLOR takes precedence (unless --color=always explicitly set)
+    if os.environ.get("NO_COLOR") and color_option != "always":
+        return False
     if color_option == "always":
         return True
     if color_option == "never":
@@ -770,11 +927,12 @@ def should_colorize(color_option: ColorOption) -> bool:
 # Rich integration - pass to Console:
 from rich.console import Console
 
-def create_console(color_option: ColorOption) -> Console:
+def create_console(color_option: ColorOption, stderr: bool = False) -> Console:
     """Create a Rich Console with appropriate color settings."""
+    no_color_env = bool(os.environ.get("NO_COLOR")) and color_option != "always"
     force_terminal = color_option == "always"
-    no_color = color_option == "never"
-    return Console(force_terminal=force_terminal, no_color=no_color)
+    no_color = color_option == "never" or no_color_env
+    return Console(stderr=stderr, force_terminal=force_terminal, no_color=no_color)
 ```
 
 **Alternative: `--json` flag:**
@@ -791,7 +949,7 @@ conflicts across commands.
 
 * * *
 
-### 10. Rich Output Utilities
+### 11. Rich Output Utilities
 
 **Status**: Recommended
 
@@ -871,7 +1029,7 @@ commands and makes it easy to update the visual style in one place.
 
 * * *
 
-### 11. Stdout/Stderr Separation
+### 12. Stdout/Stderr Separation
 
 **Status**: Essential
 
@@ -917,7 +1075,7 @@ enables CLI tools to be composed in pipelines.
 
 * * *
 
-### 12. Error Handling with Custom Exceptions
+### 13. Error Handling with Custom Exceptions
 
 **Status**: Recommended
 
@@ -989,7 +1147,7 @@ Exit codes follow Unix conventions for proper integration with shell scripts.
 
 * * *
 
-### 13. Testing with CliRunner
+### 14. Testing with CliRunner
 
 **Status**: Recommended
 
@@ -1061,7 +1219,7 @@ Tests can verify exit codes, stdout/stderr output, and side effects.
 
 * * *
 
-### 14. Interactive Prompts with Questionary
+### 15. Interactive Prompts with Questionary
 
 **Status**: Situational
 
@@ -1118,7 +1276,7 @@ Always support a `--yes` flag to enable non-interactive automation.
 
 * * *
 
-### 15. Documentation Command
+### 16. Documentation Command
 
 **Status**: Recommended
 
@@ -1169,35 +1327,38 @@ especially valuable for CLIs with many subcommands.
 
 ## Best Practices Summary
 
-1. **Use the modern tooling stack** (uv, Typer, Rich, Ruff, BasedPyright)
+1. **Support agent/automation modes** with `--non-interactive` and `--yes` flags
 
-2. **Use Base Command pattern** to eliminate boilerplate across commands
+2. **Use the modern tooling stack** (uv, Typer/argparse+rich_argparse, Rich, Ruff,
+   BasedPyright)
 
-3. **Support dual output modes** (text + JSON) through OutputManager
+3. **Use Base Command pattern** to eliminate boilerplate across commands
 
-4. **Separate handlers from command definitions** for testability
+4. **Support dual output modes** (text, JSON, jsonl) through OutputManager
 
-5. **Use TypedDict or dataclasses** for type-safe options
+5. **Raise CLIError exceptions**, handle exits only at entrypoint
 
-6. **Pair text and JSON formatters** for each data domain
+6. **Use standard exit codes**: 0 success, 1 error, 2 validation, 130 interrupted
 
-7. **Use git-based versioning** via uv-dynamic-versioning
+7. **Route output correctly**: data to stdout, spinners/errors to stderr
 
-8. **Define global options at app level** using Typer’s callback
+8. **Separate handlers from command definitions** for testability
 
-9. **Support `--color auto|always|never`** following Unix conventions (git, ls, grep)
+9. **Use TypedDict or dataclasses** for type-safe options
 
-10. **Route output correctly**: data to stdout, errors to stderr
+10. **Pair text and JSON formatters** for each data domain
 
-11. **Use custom exceptions** for explicit error handling
+11. **Use git-based versioning** via uv-dynamic-versioning
 
-12. **Support --dry-run** for safe testing of destructive commands
+12. **Define global options at app level** using Typer’s callback
 
-13. **Test with CliRunner** for isolated, fast tests
+13. **Support `--color auto|always|never`** and respect `NO_COLOR` env var
 
-14. **Support --yes flag** for non-interactive automation
+14. **Support --dry-run** for safe testing of destructive commands
 
-15. **Add a docs command** for comprehensive CLI documentation
+15. **Test with CliRunner** for isolated, fast tests
+
+16. **Add docs/schema/examples commands** for human and machine documentation
 
 * * *
 
