@@ -1046,3 +1046,229 @@ $ speculate customize general
 $ speculate update
 # Only syncs filtered content to mirror
 ```
+
+---
+
+## Appendix: Tagging Existing Docs
+
+This section maps out the work needed to add consistent YAML frontmatter tags to all
+existing Speculate docs.
+
+### Frontmatter Schema
+
+All docs should have consistent YAML frontmatter defined by a Pydantic model:
+
+```python
+from pydantic import BaseModel, Field
+from datetime import date
+from typing import Literal
+
+
+class Author(BaseModel):
+    """Author attribution, similar to git commit author."""
+    name: str
+    email: str | None = None
+
+
+class DocMetadata(BaseModel):
+    """YAML frontmatter schema for Speculate docs.
+
+    This model defines the structure of frontmatter at the top of each
+    markdown file, between --- delimiters.
+    """
+
+    # Content classification
+    tags: list[str] = Field(
+        default_factory=list,
+        description="Content tags for filtering (e.g., python, testing, cli)"
+    )
+
+    # Authorship (like git commits)
+    author: Author | None = Field(
+        default=None,
+        description="Original author of this document"
+    )
+    contributors: list[Author] = Field(
+        default_factory=list,
+        description="Additional contributors who have significantly edited"
+    )
+
+    # Lifecycle
+    created: date | None = Field(
+        default=None,
+        description="Date document was created (YYYY-MM-DD)"
+    )
+    updated: date | None = Field(
+        default=None,
+        description="Date of last significant update"
+    )
+
+    # Status (optional, mainly for specs)
+    status: Literal["draft", "active", "deprecated", "archived"] | None = Field(
+        default=None,
+        description="Document lifecycle status"
+    )
+
+    # For research docs
+    sources: list[str] = Field(
+        default_factory=list,
+        description="URLs or references used in research docs"
+    )
+```
+
+### Example Frontmatter
+
+```yaml
+---
+tags:
+  - python
+  - testing
+  - tdd
+author:
+  name: Jane Developer
+  email: jane@example.com
+contributors:
+  - name: Claude
+created: 2026-01-15
+updated: 2026-01-16
+---
+
+# Python Testing Guidelines
+
+...content...
+```
+
+### Minimal Frontmatter (Just Tags)
+
+For simple docs, only tags are required:
+
+```yaml
+---
+tags:
+  - typescript
+  - cli
+---
+```
+
+### Proposed Tag Assignments
+
+#### Agent Rules (`docs/general/agent-rules/`)
+
+| File | Proposed Tags |
+|------|---------------|
+| `python-rules.md` | `python` |
+| `python-rules-opinionated.md` | `python`, `opinionated` |
+| `typescript-rules.md` | `typescript` |
+| `typescript-cli-tool-rules.md` | `typescript`, `cli` |
+| `convex-rules.md` | `typescript`, `convex` |
+| `general-coding-rules.md` | `general` |
+| `general-comment-rules.md` | `general` |
+| `general-style-rules.md` | `general` |
+| `general-testing-rules.md` | `general`, `testing` |
+| `general-eng-assistant-rules.md` | `general` |
+| `backward-compatibility-rules.md` | `general` |
+| `tool-development-rules.md` | `general`, `cli` |
+| `automatic-shortcut-triggers.md` | `general`, `workflow` |
+
+#### Agent Guidelines (`docs/general/agent-guidelines/`)
+
+| File | Proposed Tags |
+|------|---------------|
+| `general-tdd-guidelines.md` | `general`, `testing`, `tdd` |
+| `golden-testing-guidelines.md` | `general`, `testing`, `golden-testing` |
+| `typescript-testing-guidelines.md` | `typescript`, `testing` |
+| `typescript-dependency-injection-guidelines.md` | `typescript`, `testing`, `di` |
+
+#### Agent Shortcuts (`docs/general/agent-shortcuts/`)
+
+| File | Proposed Tags |
+|------|---------------|
+| `shortcut-commit-code.md` | `general`, `workflow`, `git` |
+| `shortcut-merge-upstream.md` | `general`, `workflow`, `git` |
+| `shortcut-precommit-process.md` | `general`, `workflow` |
+| `shortcut-create-pr-simple.md` | `general`, `workflow`, `git` |
+| `shortcut-create-or-update-pr-with-validation-plan.md` | `general`, `workflow`, `git` |
+| `shortcut-create-or-update-validation-plan.md` | `general`, `workflow` |
+| `shortcut-review-pr.md` | `general`, `workflow`, `git` |
+| `shortcut-review-pr-and-fix-with-beads.md` | `general`, `workflow`, `beads` |
+| `shortcut-new-plan-spec.md` | `general`, `workflow`, `specs` |
+| `shortcut-new-implementation-spec.md` | `general`, `workflow`, `specs` |
+| `shortcut-new-validation-spec.md` | `general`, `workflow`, `specs` |
+| `shortcut-implement-spec.md` | `general`, `workflow`, `specs` |
+| `shortcut-refine-spec.md` | `general`, `workflow`, `specs` |
+| `shortcut-update-spec.md` | `general`, `workflow`, `specs` |
+| `shortcut-update-specs-status.md` | `general`, `workflow`, `specs` |
+| `shortcut-new-architecture-doc.md` | `general`, `workflow`, `architecture` |
+| `shortcut-revise-architecture-doc.md` | `general`, `workflow`, `architecture` |
+| `shortcut-new-research-brief.md` | `general`, `workflow`, `research` |
+| `shortcut-coding-spike.md` | `general`, `workflow` |
+| `shortcut-implement-beads.md` | `general`, `workflow`, `beads` |
+| `shortcut-new-implementation-beads-from-spec.md` | `general`, `workflow`, `beads` |
+| `shortcut-cleanup-all.md` | `general`, `workflow`, `cleanup` |
+| `shortcut-cleanup-update-docstrings.md` | `general`, `workflow`, `cleanup` |
+| `shortcut-cleanup-remove-trivial-tests.md` | `general`, `workflow`, `cleanup`, `testing` |
+| `shortcut-review-all-code-specs-docs-convex.md` | `convex`, `workflow` |
+
+#### Agent Setup (`docs/general/agent-setup/`)
+
+| File | Proposed Tags |
+|------|---------------|
+| `shortcut-setup-beads.md` | `general`, `setup`, `beads` |
+| `shortcut-setup-github-cli.md` | `general`, `setup`, `git` |
+
+#### Research (`docs/general/research/current/`)
+
+| File | Proposed Tags |
+|------|---------------|
+| `research-modern-python-cli-patterns.md` | `python`, `cli`, `research` |
+| `research-modern-typescript-cli-patterns.md` | `typescript`, `cli`, `research` |
+| `research-modern-typescript-monorepo-patterns.md` | `typescript`, `monorepo`, `research` |
+| `research-convex-db-limits-best-practices.md` | `convex`, `research` |
+| `research-code-coverage-typescript.md` | `typescript`, `testing`, `research` |
+| `research-cli-golden-testing.md` | `cli`, `testing`, `golden-testing`, `research` |
+
+### Tag Taxonomy Summary
+
+| Category | Tags |
+|----------|------|
+| **Languages** | `python`, `typescript`, `go`, `rust` |
+| **Frameworks** | `convex`, `react`, `fastapi`, `django` |
+| **Domains** | `testing`, `cli`, `git`, `ci-cd`, `security` |
+| **Workflow** | `workflow`, `specs`, `architecture`, `research`, `cleanup` |
+| **Testing Types** | `tdd`, `golden-testing`, `di` (dependency injection) |
+| **Special** | `general` (language-agnostic), `opinionated`, `beads`, `setup` |
+
+### Implementation Tasks for Metadata
+
+#### Phase 1: Schema & Parsing
+
+- [ ] Create `cli/src/speculate/cli/metadata.py` with:
+  - [ ] `DocMetadata` Pydantic model (as defined above)
+  - [ ] `Author` Pydantic model
+  - [ ] `parse_frontmatter(content: str) -> DocMetadata | None`
+  - [ ] `update_frontmatter(content: str, metadata: DocMetadata) -> str`
+  - [ ] `validate_frontmatter(path: Path) -> list[str]` (returns validation errors)
+- [ ] Unit tests for metadata parsing and validation
+
+#### Phase 2: CLI Commands
+
+- [ ] `speculate tags` - list all tags with file counts
+- [ ] `speculate validate` - validate frontmatter in all docs
+- [ ] `speculate metadata <path>` - show/edit metadata for a file
+
+#### Phase 3: Add Tags to Existing Docs
+
+- [ ] Create script: `scripts/add-tags.py` for batch tagging
+- [ ] Add tags to agent-rules (13 files)
+- [ ] Add tags to agent-guidelines (4 files)
+- [ ] Add tags to agent-shortcuts (27 files)
+- [ ] Add tags to agent-setup (2 files)
+- [ ] Add tags to research docs (6 files)
+- [ ] Add author attribution to all docs (use git history where possible)
+- [ ] Run `speculate validate` to confirm all frontmatter is valid
+
+#### Phase 4: Documentation
+
+- [ ] Update docs-overview.md with metadata schema
+- [ ] Document tag taxonomy and conventions
+- [ ] Add `speculate tags` output to README or CLI help
