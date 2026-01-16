@@ -58,9 +58,9 @@ engineering that won’t fall apart as a codebase grows in complexity.
 
 4. **Start using shortcuts:**
 
-   Reference **`@shortcut:new-plan-spec.md`** to plan a feature,
-   **`shortcut:new-implementation-spec.md`** to design the implementation, then
-   **`@shortcut:implement-spec.md`** to implement, **`@shortcut:commit-code.md`** to
+   Reference **`@shortcut-new-plan-spec.md`** to plan a feature,
+   **`shortcut-new-implementation-spec.md`** to design the implementation, then
+   **`@shortcut-implement-spec.md`** to implement, **`@shortcut-commit-code.md`** to
    commit.
 
 ## Agent Docs Layout
@@ -94,10 +94,10 @@ docs/
 │   │   ├── typescript-rules.md
 │   │   ├── python-rules.md
 │   │   └── ...
-│   ├── agent-shortcuts/        # Task prompts (shortcut:*.md)
-│   │   ├── shortcut:new-plan-spec.md
-│   │   ├── shortcut:implement-spec.md
-│   │   ├── shortcut:commit-code.md
+│   ├── agent-shortcuts/        # Task prompts (shortcut-*.md)
+│   │   ├── shortcut-new-plan-spec.md
+│   │   ├── shortcut-implement-spec.md
+│   │   ├── shortcut-commit-code.md
 │   │   └── ...
 │   ├── agent-guidelines/       # Longer guidance docs (TDD, DI, testing)
 │   └── agent-setup/            # Tool setup guides for agents
@@ -203,25 +203,25 @@ You can reference any of these docs as needed in chat.
 The most common pattern is simply to mention the shortcut docs.
 For example, the key ones are:
 
-- **@shortcut:new-plan-spec.md** — Create a new feature plan
+- **@shortcut-new-plan-spec.md** — Create a new feature plan
 
-- **@shortcut:new-implementation-spec.md** — Create an implementation spec
+- **@shortcut-new-implementation-spec.md** — Create an implementation spec
 
-- **@shortcut:new-validation-spec.md** — Create a validation spec
+- **@shortcut-new-validation-spec.md** — Create a validation spec
 
-- **@shortcut:new-research-brief.md** — Create a new research brief
+- **@shortcut-new-research-brief.md** — Create a new research brief
 
-- **@shortcut:new-architecture-doc.md** — Create a new architecture document
+- **@shortcut-new-architecture-doc.md** — Create a new architecture document
 
-- **@shortcut:revise-architecture-doc.md** — Revise an existing architecture document
+- **@shortcut-revise-architecture-doc.md** — Revise an existing architecture document
 
-- **@shortcut:implement-spec.md** — Implement from an existing spec
+- **@shortcut-implement-spec.md** — Implement from an existing spec
 
-- **@shortcut:precommit-process.md** — Run pre-commit checks
+- **@shortcut-precommit-process.md** — Run pre-commit checks
 
-- **@shortcut:commit-code.md** — Prepare commit message
+- **@shortcut-commit-code.md** — Prepare commit message
 
-- **@shortcut:create-pr.md** — Create a pull request
+- **@shortcut-create-pr.md** — Create a pull request
 
 And for setting up tools, reference setup docs:
 
@@ -292,7 +292,7 @@ a few things. Here is an example that shows the main shortcuts and doc types:
 2. You want to add a new feature or perform a task like a refactor.
    The first step is to plan it.
    Reference
-   **[shortcut:new-plan-spec.md](docs/general/agent-shortcuts/shortcut:new-plan-spec.md)**
+   **[shortcut-new-plan-spec.md](docs/general/agent-shortcuts/shortcut-new-plan-spec.md)**
    (just hit `@` and type `new-plan` and it’s generally sufficient) and give your agent
    of choice (Claude Code, Codex, or Cursor) an initial description of what you want.
    The agent will read this shortcut doc, follow the listed steps to find the plan spec
@@ -306,13 +306,13 @@ a few things. Here is an example that shows the main shortcuts and doc types:
 3. Typically you’d then do a more detailed implementation plan that pulls in more code
    for context and maps out what parts of the codebase need to change.
    Reference
-   **[shortcut:new-implementation-spec.md](docs/general/agent-shortcuts/shortcut:new-implementation-spec.md)**
+   **[shortcut-new-implementation-spec.md](docs/general/agent-shortcuts/shortcut-new-implementation-spec.md)**
    and the agent then copies the implementation spec template and fills that in based on
    what’s been done in the planning spec.
 
 4. Once the plan and implementation specs are ready.
    Reference
-   **[shortcut:implement-spec.md](docs/general/agent-shortcuts/shortcut:implement-spec.md)**
+   **[shortcut-implement-spec.md](docs/general/agent-shortcuts/shortcut-implement-spec.md)**
    with the spec in context, and it will then begin implementation.
 
 5. Say during this process you notice you’ve made some poor architecture choices because
@@ -320,7 +320,7 @@ a few things. Here is an example that shows the main shortcuts and doc types:
    codebase well enough in the implementation plan.
    It’s time to do more research and analysis.
    You reference
-   **[shortcut:new-research-brief.md](docs/general/agent-shortcuts/shortcut:new-research-brief.md)**
+   **[shortcut-new-research-brief.md](docs/general/agent-shortcuts/shortcut-new-research-brief.md)**
    and tell it to research all available alternative libraries and save the research
    brief. Iterate on this doc until satisfied.
    Make sure it has good links and background.
@@ -329,14 +329,14 @@ a few things. Here is an example that shows the main shortcuts and doc types:
    the codebase need to change.
    Your codebase has gotten quite large and it’s getting confusing, so you tell the
    agent to write a full architecture summary by referencing
-   **[shortcut:new-architecture-doc.md](docs/general/agent-shortcuts/shortcut:new-architecture-doc.md)**.
+   **[shortcut-new-architecture-doc.md](docs/general/agent-shortcuts/shortcut-new-architecture-doc.md)**.
    The agent looks through the codebase and you iterate to improve the architecture doc.
 
 7. Now return to your plan spec, reference them, and tell the agent to reference both
    the research brief and the architecture doc, and revise the plan spec, including the
    architecture doc as background.
    Reference
-   **[shortcut:implement-spec.md](docs/general/agent-shortcuts/shortcut:implement-spec.md)**.
+   **[shortcut-implement-spec.md](docs/general/agent-shortcuts/shortcut-implement-spec.md)**.
 
 8. Repeat with the implementation plan spec.
    Now we are ready to try implementing again.
@@ -347,7 +347,7 @@ a few things. Here is an example that shows the main shortcuts and doc types:
 
 9. Finally you’re at an initial stopping point and tests are passing.
    Reference
-   **[shortcut:commit-code.md](docs/general/agent-shortcuts/shortcut:commit-code.md)**
+   **[shortcut-commit-code.md](docs/general/agent-shortcuts/shortcut-commit-code.md)**
    to commit. These instructions tell the agent to
 
    - Run all linting and tests and fix everything
@@ -362,12 +362,12 @@ a few things. Here is an example that shows the main shortcuts and doc types:
 
 10. Repeat the processes above until the feature is getting complete.
     Reference
-    **[shortcut:new-validation-spec.md](docs/general/agent-shortcuts/shortcut:new-validation-spec.md)**
+    **[shortcut-new-validation-spec.md](docs/general/agent-shortcuts/shortcut-new-validation-spec.md)**
     to have it write a spec of what automated testing has been done and what needs to be
     manually validated by you.
 
 11. Reference
-    **[shortcut:create-pr.md](docs/general/agent-shortcuts/shortcut:create-pr.md)** to
+    **[shortcut-create-pr.md](docs/general/agent-shortcuts/shortcut-create-pr.md)** to
     request the agent do a final review of all code on your branch and use `gh` to file
     a PR that references the relevant parts of the validation spec.
     You can now review the PR again, do manual testing, repeat the above steps as
@@ -426,13 +426,13 @@ shortcut from **`docs/general/agent-shortcuts/`**.
 
 For example:
 
-- “Create a plan for user profiles” → triggers **@shortcut:new-plan-spec.md**
+- “Create a plan for user profiles” → triggers **@shortcut-new-plan-spec.md**
 
-- “Commit my changes” → triggers **@shortcut:precommit-process.md** →
-  **@shortcut:commit-code.md**
+- “Commit my changes” → triggers **@shortcut-precommit-process.md** →
+  **@shortcut-commit-code.md**
 
 You can also invoke shortcuts explicitly by referencing them (e.g., typing `@` and
-selecting **`shortcut:new-plan-spec.md`**).
+selecting **`shortcut-new-plan-spec.md`**).
 
 ## Feedback?
 

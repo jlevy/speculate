@@ -323,10 +323,10 @@ docs/
 │   │   ├── typescript-rules.md
 │   │   ├── python-rules.md
 │   │   └── ...
-│   ├── agent-shortcuts/        # Task prompts (shortcut:*.md)
-│   │   ├── shortcut:new-plan-spec.md
-│   │   ├── shortcut:implement-spec.md
-│   │   ├── shortcut:commit-code.md
+│   ├── agent-shortcuts/        # Task prompts (shortcut-*.md)
+│   │   ├── shortcut-new-plan-spec.md
+│   │   ├── shortcut-implement-spec.md
+│   │   ├── shortcut-commit-code.md
 │   │   └── ...
 │   ├── agent-guidelines/       # Longer guidance docs (TDD, DI, testing)
 │   └── agent-setup/            # Tool setup guides for agents
