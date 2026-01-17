@@ -49,6 +49,14 @@ This will prompt for web-based authentication in your browser.
 
 OIDC trusted publishing requires a public GitHub repository.
 
+### 4. Verify npm Version
+
+OIDC publishing requires npm 11.5.1 or later. Update if needed:
+
+```bash
+npm install -g npm@latest
+```
+
 ## During Development
 
 Merge PRs to `main` without creating changesets.
@@ -83,16 +91,13 @@ Choose version bump:
 
 ### Step 3: Create Changeset
 
-```bash
-pnpm changeset:add <bump> <version> "<summary>"
-```
-
-Examples:
+Run the interactive changeset command:
 
 ```bash
-pnpm changeset:add patch 0.1.1 "Fix parsing bug"
-pnpm changeset:add minor 0.2.0 "Add new export format"
+pnpm changeset
 ```
+
+This prompts for package selection, bump type (patch/minor/major), and a summary.
 
 Commit:
 
@@ -106,7 +111,7 @@ git commit -m "chore: add changeset for vX.X.X"
 Run changesets to bump version and update CHANGELOG:
 
 ```bash
-pnpm version-packages
+pnpm changeset version
 ```
 
 Review and commit:
@@ -124,7 +129,7 @@ git commit -m "chore: release PACKAGE vX.X.X"
 
 ```bash
 # Review changes since last release
-git log $(git describe --tags --abbrev=0)..HEAD --oneline
+git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --oneline
 
 # Write release notes to release-notes.md or prepare for PR body
 ```
@@ -184,9 +189,9 @@ gh release view vX.X.X -R OWNER/REPO
 
 ```bash
 git checkout main && git pull
-pnpm changeset:add minor 0.2.0 "Summary of changes"
+pnpm changeset  # Interactive: select package, bump type, summary
 git add .changeset && git commit -m "chore: add changeset for v0.2.0"
-pnpm version-packages
+pnpm changeset version
 git add . && git commit -m "chore: release PACKAGE v0.2.0"
 
 # Write release notes (see release-notes-guidelines.md)
@@ -199,9 +204,9 @@ gh release edit v0.2.0 -R OWNER/REPO --notes-file release-notes.md
 ### Restricted Environments (via PR and API)
 
 ```bash
-pnpm changeset:add minor 0.2.0 "Summary of changes"
+pnpm changeset  # Interactive: select package, bump type, summary
 git add .changeset && git commit -m "chore: add changeset for v0.2.0"
-pnpm version-packages
+pnpm changeset version
 git add . && git commit -m "chore: release PACKAGE v0.2.0"
 
 # Write release notes, push to branch
@@ -220,7 +225,7 @@ gh release edit v0.2.0 -R OWNER/REPO --notes-file release-notes.md
 
 ## How OIDC Publishing Works
 
-This project uses npm’s trusted publishing via OIDC (OpenID Connect):
+This project uses npm's trusted publishing via OIDC (OpenID Connect):
 
 - **No tokens to manage**: GitHub Actions presents an OIDC identity to npm
 - **No secrets to rotate**: npm issues a one-time credential for each workflow run
@@ -228,6 +233,15 @@ This project uses npm’s trusted publishing via OIDC (OpenID Connect):
 
 The release workflow (`.github/workflows/release.yml`) triggers on `v*` tags and
 publishes automatically without requiring an `NPM_TOKEN` secret.
+
+**Required workflow permissions**: The release workflow must include `id-token: write`
+permission to generate OIDC tokens:
+
+```yaml
+permissions:
+  contents: read
+  id-token: write  # Required for OIDC trusted publishing
+```
 
 ## Troubleshooting
 
