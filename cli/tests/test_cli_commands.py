@@ -8,12 +8,23 @@ import yaml
 from pytest import MonkeyPatch
 
 from speculate.cli.cli_commands import (
+    CLAUDE_PLUGIN_DIR,
+    CLAUDE_PLUGIN_NAME,
     SPECULATE_HEADER,
     SPECULATE_MARKER,
     _ensure_speculate_header,
+    _generate_hooks_json,
+    _generate_plugin_json,
+    _generate_plugin_readme,
+    _generate_skill_md,
+    _get_plugin_version,
+    _remove_claude_plugin,
     _remove_cursor_rules,
+    _remove_global_claude_plugin,
     _remove_speculate_header,
+    _setup_claude_plugin,
     _setup_cursor_rules,
+    _setup_global_claude_plugin,
     _update_speculate_settings,
     install,
     status,
@@ -598,3 +609,606 @@ class TestUninstallCommand:
         content = claude_md.read_text()
         assert SPECULATE_MARKER not in content
         assert "My Custom Instructions" in content
+
+
+class TestGeneratePluginJson:
+    """Tests for _generate_plugin_json function."""
+
+    def test_generates_valid_json(self):
+        """Should generate valid JSON with required fields."""
+        import json
+
+        result = _generate_plugin_json()
+        data = json.loads(result)
+
+        assert data["name"] == CLAUDE_PLUGIN_NAME
+        assert "version" in data
+        assert "description" in data
+        assert data["author"]["name"] == "Speculate"
+
+
+class TestGenerateSkillMd:
+    """Tests for _generate_skill_md function."""
+
+    def test_generates_skill_with_frontmatter(self):
+        """Should generate SKILL.md with YAML frontmatter."""
+        shortcuts = ["new-plan-spec.md", "commit-code.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert result.startswith("---")
+        assert "name: speculate-workflow" in result
+        assert "description:" in result
+        assert "---" in result[3:]  # Second --- marker
+
+    def test_generates_trigger_table(self):
+        """Should generate trigger table for shortcuts."""
+        shortcuts = ["new-plan-spec.md", "commit-code.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "| If user request involves..." in result
+        assert "/speculate:new-plan-spec" in result
+        assert "/speculate:commit-code" in result
+
+    def test_includes_workflow_chains(self):
+        """Should include common workflow chains."""
+        shortcuts = ["new-plan-spec.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "## Common Workflow Chains" in result
+        assert "Full Feature Flow" in result
+        assert "Commit Flow" in result
+
+
+class TestSetupClaudePlugin:
+    """Tests for _setup_claude_plugin function."""
+
+    def test_creates_plugin_directory_structure(self, tmp_path: Path):
+        """Should create the plugin directory structure."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test-command.md").write_text("# Test Command")
+
+        _setup_claude_plugin(tmp_path)
+
+        plugin_dir = tmp_path / CLAUDE_PLUGIN_DIR
+        assert plugin_dir.exists()
+        assert (plugin_dir / "commands").exists()
+        assert (plugin_dir / "skills" / "speculate-workflow").exists()
+        assert (plugin_dir / ".claude-plugin").exists()
+
+    def test_generates_plugin_json(self, tmp_path: Path):
+        """Should generate plugin.json manifest."""
+        import json
+
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test-command.md").write_text("# Test Command")
+
+        _setup_claude_plugin(tmp_path)
+
+        plugin_json = tmp_path / CLAUDE_PLUGIN_DIR / ".claude-plugin" / "plugin.json"
+        assert plugin_json.exists()
+        data = json.loads(plugin_json.read_text())
+        assert data["name"] == CLAUDE_PLUGIN_NAME
+
+    def test_creates_symlinks_for_shortcuts(self, tmp_path: Path):
+        """Should create symlinks with shortcut: prefix stripped."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:new-plan-spec.md").write_text("# Plan Spec")
+        (shortcuts_dir / "shortcut:commit-code.md").write_text("# Commit")
+
+        _setup_claude_plugin(tmp_path)
+
+        commands_dir = tmp_path / CLAUDE_PLUGIN_DIR / "commands"
+        # Should have clean names without shortcut: prefix
+        assert (commands_dir / "new-plan-spec.md").is_symlink()
+        assert (commands_dir / "commit-code.md").is_symlink()
+        # Should not have the prefixed names
+        assert not (commands_dir / "shortcut:new-plan-spec.md").exists()
+
+    def test_symlinks_are_relative(self, tmp_path: Path):
+        """Symlinks should be relative paths pointing to source."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        _setup_claude_plugin(tmp_path)
+
+        link = tmp_path / CLAUDE_PLUGIN_DIR / "commands" / "test.md"
+        target = os.readlink(link)
+        assert not target.startswith("/")
+        assert "docs/general/agent-shortcuts/shortcut:test.md" in target
+
+    def test_generates_skill_md(self, tmp_path: Path):
+        """Should generate SKILL.md routing skill."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        _setup_claude_plugin(tmp_path)
+
+        skill_md = tmp_path / CLAUDE_PLUGIN_DIR / "skills" / "speculate-workflow" / "SKILL.md"
+        assert skill_md.exists()
+        content = skill_md.read_text()
+        assert "speculate-workflow" in content
+        assert "/speculate:test" in content
+
+    def test_include_pattern_filters_shortcuts(self, tmp_path: Path):
+        """Include pattern should filter which shortcuts are linked."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:new-plan-spec.md").write_text("# Plan")
+        (shortcuts_dir / "shortcut:commit-code.md").write_text("# Commit")
+
+        _setup_claude_plugin(tmp_path, include=["shortcut:new-*.md"])
+
+        commands_dir = tmp_path / CLAUDE_PLUGIN_DIR / "commands"
+        assert (commands_dir / "new-plan-spec.md").exists()
+        assert not (commands_dir / "commit-code.md").exists()
+
+    def test_exclude_pattern_filters_shortcuts(self, tmp_path: Path):
+        """Exclude pattern should filter out matching shortcuts."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:new-plan-spec.md").write_text("# Plan")
+        (shortcuts_dir / "shortcut:commit-code.md").write_text("# Commit")
+
+        _setup_claude_plugin(tmp_path, exclude=["shortcut:commit-*.md"])
+
+        commands_dir = tmp_path / CLAUDE_PLUGIN_DIR / "commands"
+        assert (commands_dir / "new-plan-spec.md").exists()
+        assert not (commands_dir / "commit-code.md").exists()
+
+    def test_skips_existing_symlinks_without_force(self, tmp_path: Path):
+        """Should skip existing symlinks unless force=True."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        # First run creates the symlink
+        _setup_claude_plugin(tmp_path)
+        link = tmp_path / CLAUDE_PLUGIN_DIR / "commands" / "test.md"
+        assert link.is_symlink()
+
+        # Second run should skip
+        _setup_claude_plugin(tmp_path)
+        assert link.is_symlink()
+
+    def test_overwrites_with_force(self, tmp_path: Path):
+        """Should overwrite existing symlinks when force=True."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        # First run
+        _setup_claude_plugin(tmp_path)
+
+        # Second run with force
+        _setup_claude_plugin(tmp_path, force=True)
+        link = tmp_path / CLAUDE_PLUGIN_DIR / "commands" / "test.md"
+        assert link.is_symlink()
+
+    def test_collects_from_agent_setup(self, tmp_path: Path):
+        """Should also collect shortcuts from agent-setup directory."""
+        setup_dir = tmp_path / "docs" / "general" / "agent-setup"
+        setup_dir.mkdir(parents=True)
+        (setup_dir / "shortcut:setup-beads.md").write_text("# Setup")
+
+        _setup_claude_plugin(tmp_path)
+
+        commands_dir = tmp_path / CLAUDE_PLUGIN_DIR / "commands"
+        assert (commands_dir / "setup-beads.md").is_symlink()
+
+    def test_project_shortcuts_override_general(self, tmp_path: Path):
+        """Project shortcuts should take precedence over general shortcuts."""
+        general_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        general_dir.mkdir(parents=True)
+        (general_dir / "shortcut:test.md").write_text("# General")
+
+        project_dir = tmp_path / "docs" / "project" / "agent-shortcuts"
+        project_dir.mkdir(parents=True)
+        (project_dir / "shortcut:test.md").write_text("# Project")
+
+        _setup_claude_plugin(tmp_path)
+
+        link = tmp_path / CLAUDE_PLUGIN_DIR / "commands" / "test.md"
+        target = os.readlink(link)
+        assert "docs/project/agent-shortcuts" in target
+
+    def test_warns_when_no_shortcuts(self, tmp_path: Path):
+        """Should warn and skip when no shortcuts are found."""
+        # No shortcuts exist
+        _setup_claude_plugin(tmp_path)
+
+        # Plugin directory should not be created
+        assert not (tmp_path / CLAUDE_PLUGIN_DIR).exists()
+
+
+class TestRemoveClaudePlugin:
+    """Tests for _remove_claude_plugin function."""
+
+    def test_removes_plugin_directory(self, tmp_path: Path):
+        """Should remove the plugin directory."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        _setup_claude_plugin(tmp_path)
+        assert (tmp_path / CLAUDE_PLUGIN_DIR).exists()
+
+        _remove_claude_plugin(tmp_path)
+        assert not (tmp_path / CLAUDE_PLUGIN_DIR).exists()
+
+    def test_cleans_up_empty_parent_directories(self, tmp_path: Path):
+        """Should clean up empty .claude/plugins/ if no other plugins."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        _setup_claude_plugin(tmp_path)
+        _remove_claude_plugin(tmp_path)
+
+        # .claude/plugins/ should be removed if empty
+        plugins_dir = tmp_path / ".claude" / "plugins"
+        assert not plugins_dir.exists()
+
+    def test_preserves_other_plugins(self, tmp_path: Path):
+        """Should not remove other plugins in .claude/plugins/."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        _setup_claude_plugin(tmp_path)
+
+        # Create another plugin
+        other_plugin = tmp_path / ".claude" / "plugins" / "other-plugin"
+        other_plugin.mkdir(parents=True)
+        (other_plugin / "plugin.json").write_text("{}")
+
+        _remove_claude_plugin(tmp_path)
+
+        # Other plugin should still exist
+        assert other_plugin.exists()
+        # .claude/plugins/ should still exist
+        assert (tmp_path / ".claude" / "plugins").exists()
+
+    def test_no_error_if_plugin_missing(self, tmp_path: Path):
+        """Should not raise error if plugin doesn't exist."""
+        # Should not raise
+        _remove_claude_plugin(tmp_path)
+
+
+class TestInstallWithClaudePlugin:
+    """Tests for install command including Claude plugin."""
+
+    def test_creates_claude_plugin(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Should create Claude Code plugin during install."""
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        monkeypatch.chdir(tmp_path)
+        install()
+
+        assert (tmp_path / CLAUDE_PLUGIN_DIR).exists()
+        assert (tmp_path / CLAUDE_PLUGIN_DIR / "commands" / "test.md").is_symlink()
+
+
+class TestUninstallWithClaudePlugin:
+    """Tests for uninstall command including Claude plugin."""
+
+    def test_removes_claude_plugin(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Should remove Claude Code plugin during uninstall."""
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        monkeypatch.chdir(tmp_path)
+        install()
+
+        assert (tmp_path / CLAUDE_PLUGIN_DIR).exists()
+
+        uninstall(force=True)
+
+        assert not (tmp_path / CLAUDE_PLUGIN_DIR).exists()
+
+
+class TestGetPluginVersion:
+    """Tests for _get_plugin_version function."""
+
+    def test_returns_version_string(self):
+        """Should return a version string."""
+        version = _get_plugin_version()
+        # Should be a non-empty string
+        assert isinstance(version, str)
+        assert len(version) > 0
+        # Should look like a version (has dots or is fallback)
+        assert "." in version or version == "0.0.0"
+
+
+class TestGeneratePluginReadme:
+    """Tests for _generate_plugin_readme function."""
+
+    def test_generates_readme_with_command_count(self):
+        """Should generate README with correct command count."""
+        result = _generate_plugin_readme(15)
+
+        assert "# Speculate Plugin for Claude Code" in result
+        assert "**15 commands**" in result
+        assert "speculate-workflow" in result
+
+    def test_includes_workflow_chains(self):
+        """Should include workflow chain examples."""
+        result = _generate_plugin_readme(5)
+
+        assert "## Common Workflow Chains" in result
+        assert "/speculate:new-plan-spec" in result
+        assert "/speculate:implement-beads" in result
+
+    def test_includes_source_info(self):
+        """Should include source location info."""
+        result = _generate_plugin_readme(5)
+
+        assert "docs/general/agent-shortcuts/" in result
+
+
+class TestGenerateHooksJson:
+    """Tests for _generate_hooks_json function."""
+
+    def test_generates_valid_json(self):
+        """Should generate valid JSON."""
+        import json
+
+        result = _generate_hooks_json()
+        data = json.loads(result)
+
+        assert "hooks" in data
+
+    def test_includes_session_start_by_default(self):
+        """Should include SessionStart hook by default."""
+        import json
+
+        result = _generate_hooks_json()
+        data = json.loads(result)
+
+        assert "SessionStart" in data["hooks"]
+        assert len(data["hooks"]["SessionStart"]) > 0
+
+    def test_can_exclude_session_start(self):
+        """Should be able to exclude SessionStart hook."""
+        import json
+
+        result = _generate_hooks_json(include_session_start=False)
+        data = json.loads(result)
+
+        assert "SessionStart" not in data["hooks"]
+
+
+class TestPluginReadmeGeneration:
+    """Tests for README.md generation in plugin setup."""
+
+    def test_generates_readme_in_plugin(self, tmp_path: Path):
+        """Should generate README.md in plugin directory."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        _setup_claude_plugin(tmp_path)
+
+        readme = tmp_path / CLAUDE_PLUGIN_DIR / "README.md"
+        assert readme.exists()
+        content = readme.read_text()
+        assert "Speculate Plugin" in content
+
+
+class TestPluginHooksGeneration:
+    """Tests for hooks.json generation in plugin setup."""
+
+    def test_generates_hooks_by_default(self, tmp_path: Path):
+        """Should generate hooks.json by default."""
+        import json
+
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        _setup_claude_plugin(tmp_path)
+
+        hooks_file = tmp_path / CLAUDE_PLUGIN_DIR / "hooks" / "hooks.json"
+        assert hooks_file.exists()
+        data = json.loads(hooks_file.read_text())
+        assert "hooks" in data
+
+    def test_can_skip_hooks(self, tmp_path: Path):
+        """Should be able to skip hooks generation."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        _setup_claude_plugin(tmp_path, with_hooks=False)
+
+        hooks_dir = tmp_path / CLAUDE_PLUGIN_DIR / "hooks"
+        assert not hooks_dir.exists()
+
+
+class TestPluginReferenceSymlinks:
+    """Tests for reference/ symlinks in plugin setup."""
+
+    def test_creates_reference_symlinks(self, tmp_path: Path):
+        """Should create reference symlinks to agent-rules."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        rules_dir = tmp_path / "docs" / "general" / "agent-rules"
+        rules_dir.mkdir(parents=True)
+        (rules_dir / "coding-rules.md").write_text("# Coding Rules")
+
+        _setup_claude_plugin(tmp_path)
+
+        ref_dir = tmp_path / CLAUDE_PLUGIN_DIR / "reference"
+        assert ref_dir.exists()
+        assert (ref_dir / "coding-rules.md").is_symlink()
+
+    def test_reference_symlinks_are_relative(self, tmp_path: Path):
+        """Reference symlinks should be relative paths."""
+        shortcuts_dir = tmp_path / "docs" / "general" / "agent-shortcuts"
+        shortcuts_dir.mkdir(parents=True)
+        (shortcuts_dir / "shortcut:test.md").write_text("# Test")
+
+        rules_dir = tmp_path / "docs" / "general" / "agent-rules"
+        rules_dir.mkdir(parents=True)
+        (rules_dir / "test-rules.md").write_text("# Test")
+
+        _setup_claude_plugin(tmp_path)
+
+        link = tmp_path / CLAUDE_PLUGIN_DIR / "reference" / "test-rules.md"
+        target = os.readlink(link)
+        assert not target.startswith("/")
+        assert "docs/general/agent-rules/test-rules.md" in target
+
+
+class TestGlobalPluginSetup:
+    """Tests for global plugin setup."""
+
+    def test_creates_global_plugin_structure(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Should create plugin structure in fake home directory."""
+        # Use tmp_path as fake home
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        _setup_global_claude_plugin()
+
+        plugin_dir = tmp_path / ".claude" / "plugins" / CLAUDE_PLUGIN_NAME
+        assert plugin_dir.exists()
+        assert (plugin_dir / ".claude-plugin" / "plugin.json").exists()
+        assert (plugin_dir / "README.md").exists()
+        assert (plugin_dir / "skills" / "speculate-workflow" / "SKILL.md").exists()
+        assert (plugin_dir / "hooks" / "hooks.json").exists()
+
+    def test_global_readme_mentions_no_commands(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Global README should mention that commands require project install."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        _setup_global_claude_plugin()
+
+        readme = tmp_path / ".claude" / "plugins" / CLAUDE_PLUGIN_NAME / "README.md"
+        content = readme.read_text()
+        assert "speculate install" in content
+
+
+class TestGlobalPluginRemoval:
+    """Tests for global plugin removal."""
+
+    def test_removes_global_plugin(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Should remove global plugin directory."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        _setup_global_claude_plugin()
+        plugin_dir = tmp_path / ".claude" / "plugins" / CLAUDE_PLUGIN_NAME
+        assert plugin_dir.exists()
+
+        _remove_global_claude_plugin()
+        assert not plugin_dir.exists()
+
+    def test_no_error_if_global_plugin_missing(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Should not raise error if global plugin doesn't exist."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        # Should not raise
+        _remove_global_claude_plugin()
+
+
+class TestGlobalInstallFlag:
+    """Tests for --global flag in install command."""
+
+    def test_global_install_creates_plugin(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Should create global plugin when global_install=True."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        # No docs needed for global install
+        install(global_install=True)
+
+        plugin_dir = tmp_path / ".claude" / "plugins" / CLAUDE_PLUGIN_NAME
+        assert plugin_dir.exists()
+
+    def test_global_install_skips_project_setup(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Global install should not create project-level configs."""
+        # Create a proper project structure
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        monkeypatch.chdir(project_dir)
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        install(global_install=True)
+
+        # Should not create project-level files
+        assert not (project_dir / "CLAUDE.md").exists()
+        assert not (project_dir / ".cursor").exists()
+
+
+class TestGlobalUninstallFlag:
+    """Tests for --global flag in uninstall command."""
+
+    def test_global_uninstall_removes_plugin(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        """Should remove global plugin when global_install=True."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        install(global_install=True)
+        plugin_dir = tmp_path / ".claude" / "plugins" / CLAUDE_PLUGIN_NAME
+        assert plugin_dir.exists()
+
+        uninstall(force=True, global_install=True)
+        assert not plugin_dir.exists()
+
+
+class TestTokenBudgetDocs:
+    """Tests for token budget documentation in SKILL.md."""
+
+    def test_skill_md_includes_token_budget(self):
+        """SKILL.md should include token budget section."""
+        shortcuts = ["new-plan-spec.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "## Token Budget" in result
+        assert "400-500 tokens" in result
+
+
+class TestMandatoryLanguage:
+    """Tests for mandatory enforcement language in SKILL.md."""
+
+    def test_skill_md_includes_must_language(self):
+        """SKILL.md should include MUST enforcement language."""
+        shortcuts = ["new-plan-spec.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "you MUST check" in result
+        assert "you MUST use it" in result
+
+    def test_skill_md_includes_not_optional(self):
+        """SKILL.md should include 'This is NOT Optional' section."""
+        shortcuts = ["new-plan-spec.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "## This is NOT Optional" in result
+        assert "WRONG" in result
+
+    def test_skill_md_includes_session_close(self):
+        """SKILL.md should include session close protocol."""
+        shortcuts = ["new-plan-spec.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "## Session Close Protocol" in result
+        assert "Work is not done until pushed" in result
+
+    def test_skill_md_includes_pr_prerequisites(self):
+        """SKILL.md should include PR prerequisites with gh setup."""
+        shortcuts = ["new-plan-spec.md", "setup-github-cli.md"]
+        result = _generate_skill_md(shortcuts)
+
+        assert "### PR Flow (Prerequisites)" in result
+        assert "/speculate:setup-github-cli" in result
