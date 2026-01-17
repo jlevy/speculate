@@ -263,16 +263,19 @@ Track what's customized in settings.yml:
 speculate:
   format: "f0.2"
 
-mode: mirror
 docs_repo: "gh:jlevy/speculate"
 
 # Paths that have been customized (no longer mirrored)
+# This list IS the state - no separate "mode" field needed
 customized:
   - "project"                    # Entire project/ directory
   - "general/agent-rules"        # Specific subdirectory
   - "docs-overview.md"           # Root-level doc (customized navigation)
   # - "general/agent-rules/python-rules.md"  # Could also be individual files
 ```
+
+**Note**: There is no `mode` field in the config. The `customized` list *is* the state.
+Modes are CLI presets (see below), not persisted configuration.
 
 ### The Overlay Model
 
@@ -338,18 +341,35 @@ speculate diff project
 speculate diff --local-only
 ```
 
-### Mode Shortcuts
+### Modes as CLI Presets (Not Persisted)
 
-The modes are actually shortcuts for common customization patterns:
+Modes are **CLI shortcuts** for common customization patterns. They are NOT persisted in
+the config file—the `customized` list is the actual state.
 
-| Mode | Equivalent to |
-|------|--------------|
-| `mirror` | `speculate init` (nothing customized) |
-| `project` | `speculate init && speculate customize project` |
-| `full` | `speculate init && speculate customize project && speculate customize general` |
+| Mode | What it does | Resulting `customized` list |
+|------|--------------|----------------------------|
+| `mirror` | `speculate init` (nothing customized) | `[]` (empty) |
+| `project` | `speculate init && speculate customize project` | `["project"]` |
+| `full` | Customize everything | `["project", "general", "docs-overview.md", ...]` |
 
-So `speculate init --mode project` is sugar for starting in mirror mode with `project/`
-pre-customized.
+**Why not persist mode?** Because the state evolves as you customize:
+
+```bash
+$ speculate init --mode project    # Starts with customized: ["project"]
+$ speculate customize general/agent-rules  # Now: ["project", "general/agent-rules"]
+# What "mode" is this? Neither project nor full—it's just your custom state.
+```
+
+The `customized` list is the source of truth. `speculate status` can infer and display
+the closest matching mode for convenience, but it's computed from the list, not stored.
+
+```bash
+$ speculate status
+Speculate v0.2.20
+  Customized: project, general/agent-rules, docs-overview.md
+  Closest mode: project (with additional customizations)
+  ...
+```
 
 ---
 
@@ -530,7 +550,10 @@ Persist tag filters in settings for future updates:
 speculate:
   format: "f0.2"
 
-mode: mirror
+docs_repo: "gh:jlevy/speculate"
+
+# Paths that have been customized (the actual state)
+customized: []  # Empty = pure mirror mode
 
 # Tag-based filtering for what gets synced/installed
 filters:
@@ -559,15 +582,20 @@ Introduce explicit format versioning in `settings.yml`:
 speculate:
   format: "f0.2"
 
-mode: mirror           # mirror | project | full
 docs_repo: "gh:jlevy/speculate"  # Customizable upstream
+
+# Paths that have been customized (no longer mirrored)
+# This list IS the state - modes are just CLI presets
+customized:
+  - "project"
+  # - "general/agent-rules"  # Example of additional customization
 
 # Install metadata (existing)
 last_update: 2026-01-16T12:34:56+00:00
 last_cli_version: 0.2.20
 last_docs_version: abc123
 
-# Content state for sync detection (new, only used in mirror/project modes)
+# Content state for sync detection (when files are gitignored)
 content_state:
   docs/general/agent-rules/coding-style.md: "sha256:abc..."
   docs/general/agent-rules/testing.md: "sha256:def..."
@@ -843,7 +871,7 @@ def publish_from_mirror(mode: str, project_root: Path) -> None:
 
 ### Phase 3: Mode Configuration
 
-- [ ] Add `mode`, `docs_repo`, `customized`, `filters` to settings schema
+- [ ] Add `docs_repo`, `customized`, `filters` to settings schema (no `mode` - it's a CLI preset)
 - [ ] Add `--mode` and `--docs-repo` flags to `init` command
 - [ ] Create `config` command for viewing/changing settings
 - [ ] Add unit tests for mode configuration
