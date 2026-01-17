@@ -129,8 +129,8 @@ uv tool install --force speculate-cli
 speculate --version
 ```
 
-**Release notes format:** See
-@docs/general/agent-guidelines/release-notes-guidelines.md for the standard format.
+**Release notes format:** See @docs/general/agent-guidelines/release-notes-guidelines.md
+for the standard format.
 
 ```markdown
 ## What's Changed

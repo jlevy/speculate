@@ -73,7 +73,7 @@ Use this template:
 **Full commit history**: https://github.com/OWNER/REPO/compare/vX.X.X...vY.Y.Y
 ```
 
-Omit sections that have no items (e.g., skip "Breaking Changes" for patch releases).
+Omit sections that have no items (e.g., skip “Breaking Changes” for patch releases).
 
 ## Example
 

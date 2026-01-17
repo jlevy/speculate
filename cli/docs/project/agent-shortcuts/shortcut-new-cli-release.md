@@ -6,7 +6,8 @@ Create and publish a new release of the speculate-cli package to PyPI.
 
 1. Read @docs/general/agent-setup/github-cli-setup.md and verify `gh` is working
 2. Read @cli/publishing.md for an overview of the release process
-3. Read @docs/general/agent-guidelines/release-notes-guidelines.md for release notes format
+3. Read @docs/general/agent-guidelines/release-notes-guidelines.md for release notes
+   format
 
 ## Instructions
 

@@ -1,7 +1,7 @@
 # GitHub CLI Setup
 
 The GitHub CLI (`gh`) is essential for agent-based development workflows including
-creating pull requests, managing issues, and interacting with GitHub's API.
+creating pull requests, managing issues, and interacting with GitHub’s API.
 
 ## Quick Check
 
@@ -9,27 +9,28 @@ creating pull requests, managing issues, and interacting with GitHub's API.
 gh --version && gh auth status
 ```
 
-If `gh` is available and authenticated, you're ready to go.
+If `gh` is available and authenticated, you’re ready to go.
 
 ## Installation
 
 **Installation is automatic.** The `ensure-gh-cli.sh` hook runs on Claude Code session
-start and installs `gh` to `~/.local/bin` if missing. No manual installation required.
+start and installs `gh` to `~/.local/bin` if missing.
+No manual installation required.
 
 For manual installation or troubleshooting, see the
 [GitHub CLI installation docs](https://github.com/cli/cli#installation).
 
 ## Setting Up GH_TOKEN
 
-Authentication requires the `GH_TOKEN` environment variable. This must be set **before**
-starting your agent session.
+Authentication requires the `GH_TOKEN` environment variable.
+This must be set **before** starting your agent session.
 
 ### Step 1: Create a Personal Access Token
 
 Go to [GitHub Settings > Tokens](https://github.com/settings/tokens) and create a token:
 
 **Option A: Fine-Grained Token (Recommended for security)**
-- Click "Generate new token" > "Fine-grained token"
+- Click “Generate new token” > “Fine-grained token”
 - Set an expiration date
 - Select specific repositories (or all)
 - Grant permissions:
@@ -39,11 +40,11 @@ Go to [GitHub Settings > Tokens](https://github.com/settings/tokens) and create 
   - **Workflows**: Read and write (optional, for CI/CD)
 
 **Option B: Classic Token (Required for GraphQL API / cross-org access)**
-- Click "Generate new token" > "Classic"
+- Click “Generate new token” > “Classic”
 - Select scopes: `repo`, `workflow`, `read:org`
 
 **When to use which:**
-- Fine-grained tokens are more secure but don't support GraphQL API
+- Fine-grained tokens are more secure but don’t support GraphQL API
 - Use classic tokens if you need cross-organization access or GraphQL operations
 
 ### Step 2: Set Environment Variables
@@ -63,7 +64,7 @@ GH_PROMPT_DISABLED=1
 | **Claude Code CLI (local)** | Shell profile: `~/.zshrc`, `~/.bashrc`, or `~/.profile` |
 | **Other agents** | Their respective environment configuration |
 
-**Example for shell profile (~/.zshrc or ~/.bashrc):**
+**Example for shell profile (~~/.zshrc or ~~/.bashrc):**
 
 ```bash
 # GitHub CLI for agent workflows
@@ -99,19 +100,20 @@ gh api repos/owner/repo/pulls/123/comments
 
 ## Troubleshooting
 
-**"gh: command not found"**
-- The session hook should auto-install `gh`. If it didn't run, check `.claude/settings.json`
+**“gh: command not found”**
+- The session hook should auto-install `gh`. If it didn’t run, check
+  `.claude/settings.json`
 - Ensure `~/.local/bin` is in your PATH
 
-**"GH_TOKEN not set"**
+**“GH_TOKEN not set”**
 - Set the environment variable as described above
 - For Claude Code Cloud, check project environment settings
 
-**"Bad credentials" or authentication failed**
+**“Bad credentials” or authentication failed**
 - Token may be expired - generate a new one
 - Token may lack required permissions - check scopes
 - For fine-grained tokens, ensure the repository is included
 
-**"Resource not accessible by personal access token"**
-- Fine-grained tokens can't access GraphQL API - use a classic token
+**“Resource not accessible by personal access token”**
+- Fine-grained tokens can’t access GraphQL API - use a classic token
 - Fine-grained tokens must explicitly include each repository

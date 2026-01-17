@@ -3,7 +3,8 @@
 This document covers publishing the `speculate-cli` Python package to
 [PyPI](https://pypi.org/project/speculate-cli/).
 
-For release notes format, see @docs/general/agent-guidelines/release-notes-guidelines.md.
+For release notes format, see
+@docs/general/agent-guidelines/release-notes-guidelines.md.
 
 ## Overview
 
@@ -24,7 +25,7 @@ Before the first release, configure PyPI trusted publishing:
 
 2. **Configure trusted publishing**:
    - Go to [PyPI publishing settings](https://pypi.org/manage/account/publishing/)
-   - Under "Trusted Publisher Management", add a new pending publisher:
+   - Under “Trusted Publisher Management”, add a new pending publisher:
      - **Project name**: `speculate-cli`
      - **Owner**: `jlevy`
      - **Repository**: `speculate`

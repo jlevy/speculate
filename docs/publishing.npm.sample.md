@@ -51,7 +51,8 @@ OIDC trusted publishing requires a public GitHub repository.
 
 ### 4. Verify npm Version
 
-OIDC publishing requires npm 11.5.1 or later. Update if needed:
+OIDC publishing requires npm 11.5.1 or later.
+Update if needed:
 
 ```bash
 npm install -g npm@latest
@@ -224,7 +225,7 @@ gh release edit v0.2.0 -R OWNER/REPO --notes-file release-notes.md
 
 ## How OIDC Publishing Works
 
-This project uses npm's trusted publishing via OIDC (OpenID Connect):
+This project uses npm’s trusted publishing via OIDC (OpenID Connect):
 
 - **No tokens to manage**: GitHub Actions presents an OIDC identity to npm
 - **No secrets to rotate**: npm issues a one-time credential for each workflow run
@@ -248,7 +249,8 @@ The release workflow automatically creates a GitHub Release when a tag is pushed
 
 - **Release name**: Matches the tag (e.g., `v0.2.0`)
 - **Release notes**: Initially extracted from CHANGELOG; update with formatted notes
-- **Pre-release flag**: Automatically set for versions containing `-` (e.g., `1.0.0-beta.1`)
+- **Pre-release flag**: Automatically set for versions containing `-` (e.g.,
+  `1.0.0-beta.1`)
 
 After pushing a tag:
 
