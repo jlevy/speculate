@@ -65,7 +65,6 @@ Changesets are created only at release time.
 ## Release Workflow
 
 Follow these steps to publish a new version.
-All commands are non-interactive and can be run by an agent or human.
 
 ### Step 1: Prepare
 
@@ -243,6 +242,19 @@ permissions:
   id-token: write  # Required for OIDC trusted publishing
 ```
 
+## GitHub Releases
+
+The release workflow automatically creates a GitHub Release when a tag is pushed:
+
+- **Release name**: Matches the tag (e.g., `v0.2.0`)
+- **Release notes**: Initially extracted from CHANGELOG; update with formatted notes
+- **Pre-release flag**: Automatically set for versions containing `-` (e.g., `1.0.0-beta.1`)
+
+After pushing a tag:
+
+1. Verify the release appears at: `https://github.com/OWNER/REPO/releases`
+2. Update the release with formatted notes (Step 7 above)
+
 ## Troubleshooting
 
 **Release workflow not running?**
@@ -260,8 +272,3 @@ permissions:
 
 - OIDC requires the package to already exist on npm
 - Do a manual `npm publish --access public` first
-
-## Alternative: Interactive Mode
-
-For humans who prefer prompts, use `pnpm changeset` instead of writing the file
-directly. It will prompt for package selection, bump type, and description.
