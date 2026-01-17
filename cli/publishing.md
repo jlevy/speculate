@@ -1,72 +1,91 @@
-## Publishing Releases
+# Publishing (speculate-cli)
 
-This is how to publish a Python package to [**PyPI**](https://pypi.org/) from GitHub
-Actions, when using the
-[**simple-modern-uv**](https://github.com/jlevy/simple-modern-uv) template.
+This document covers publishing the `speculate-cli` Python package to
+[PyPI](https://pypi.org/project/speculate-cli/).
 
-Thanks to
-[the dynamic versioning plugin](https://github.com/ninoseki/uv-dynamic-versioning/) and
-the
-[`publish.yml` workflow](https://github.com/jlevy/simple-modern-uv/blob/main/template/.github/workflows/publish.yml),
-you can simply create tagged releases (using standard format for the tag name, e.g.
-`v0.1.0`) on GitHub and the tag will trigger a release build, which then uploads it to
-PyPI.
+For release notes format, see @docs/general/agent-guidelines/release-notes-guidelines.md.
 
-### How to Publish the First Time
+## Overview
 
-This part is a little confusing the first time.
-Here is the simplest way to do it.
-For the purposes of this example replace OWNER and PROJECT with the right values.
+- **Package name**: `speculate-cli` (install with `pip install speculate-cli` or
+  `uv add speculate-cli`)
+- **Executable**: `speculate`
+- **Tag format**: `cli-v0.1.0` (uses `cli-v` prefix since this is a monorepo)
+- **Versioning**: Automatic via
+  [uv-dynamic-versioning](https://github.com/ninoseki/uv-dynamic-versioning/)
 
-1. **Get a PyPI account** at [pypi.org](https://pypi.org/) and sign in.
+The release workflow uses PyPI trusted publishing (OIDC) - no tokens required.
 
-2. **Pick a name for the project** that isn’t already taken.
+## One-Time Setup
 
-   - Go to `https://pypi.org/project/PROJECT` to see if another project with that name
-     already exits.
+Before the first release, configure PyPI trusted publishing:
 
-   - If needed, update your `pyproject.yml` with the correct name.
+1. **Get a PyPI account** at [pypi.org](https://pypi.org/) and sign in
 
-3. **Authorize** your repository to publish to PyPI:
+2. **Configure trusted publishing**:
+   - Go to [PyPI publishing settings](https://pypi.org/manage/account/publishing/)
+   - Under "Trusted Publisher Management", add a new pending publisher:
+     - **Project name**: `speculate-cli`
+     - **Owner**: `jlevy`
+     - **Repository**: `speculate`
+     - **Workflow**: `publish.yml`
+     - **Environment**: Leave blank
 
-   - Go to [the publishing settings page](https://pypi.org/manage/account/publishing/).
+3. **Verify the workflow exists** at `.github/workflows/publish.yml`
 
-   - Find “Trusted Publisher Management” and register your GitHub repo as a new
-     “pending” trusted publisher
+## Release Workflow
 
-   - Enter the project name, repo owner, repo name, and `publish.yml` as the workflow
-     name. (You can leave the “environment name” field blank.)
+See [cli/docs/development.md](docs/development.md#releasing-to-pypi) for the full
+release process.
 
-4. **Create a release** on GitHub:
+### Quick Reference
 
-   - Commit code and make sure it’s running correctly.
+```bash
+# 1. Ensure tests pass
+cd cli
+make lint && make test
+git push
+gh run list --limit 1  # Verify CI passed
 
-   - Go to your GitHub project page, then click on Actions tab.
+# 2. Check current version
+gh release list -R jlevy/speculate --limit 3
 
-   - Confirm all tests are passing in the last CI workflow.
-     (If you want, you can even publish this template when it’s empty as just a stub
-     project, to try all this out.)
+# 3. Prepare release notes (see release-notes-guidelines.md)
+git log $(git describe --tags --abbrev=0 --match "cli-v*" 2>/dev/null || echo "HEAD~20")..HEAD --oneline
 
-   - Go to your GitHub project page, click on Releases.
+# 4. Create release (triggers publish workflow)
+gh release create cli-v0.0.9 --title "CLI v0.0.9" --notes-file release-notes.md
+# Or with inline notes:
+gh release create cli-v0.0.9 --title "CLI v0.0.9" --notes "Brief description"
 
-   - Fill in the tag and the release name.
-     Select to create a new tag, and pick a version.
-     A good option is `v0.1.0`. (It’s wise to have it start with a `v`.)
+# 5. Monitor and verify
+gh run list --limit 1
+gh run watch <run-id> --exit-status
 
-   - Submit to create the release.
+# 6. Confirm on PyPI
+curl -s https://pypi.org/pypi/speculate-cli/json | python3 -c \
+  "import sys,json; print(json.load(sys.stdin)['info']['version'])"
+```
 
-5. **Confirm it publishes to PyPI**
+## Version Format
 
-   - Watch for the release workflow in the GitHub Actions tab.
+- **Tagged releases**: `cli-v0.1.0` tag produces version `0.1.0` on PyPI
+- **Development versions** (between tags): `0.1.1.dev3+g1234567`
 
-   - If it succeeds, you should see it appear at `https://pypi.org/project/PROJECT`.
+## Troubleshooting
 
-### How to Publish Subsequent Releases
+**Publish workflow not running?**
 
-Just create a new release!
-Everything is the same as the last two steps above.
+- Ensure tag format is `cli-v*` (e.g., `cli-v0.0.9`)
+- Check tag was pushed: `git ls-remote --tags origin | grep cli-v`
 
-* * *
+**PyPI publish failing with 403?**
 
-*This file was built with
-[simple-modern-uv](https://github.com/jlevy/simple-modern-uv).*
+- Verify trusted publishing is configured at
+  https://pypi.org/manage/project/speculate-cli/settings/publishing/
+- Ensure the repository and workflow match exactly
+
+**Version not updating?**
+
+- The version is derived from git tags via uv-dynamic-versioning
+- Ensure the tag follows the `cli-v0.0.0` format

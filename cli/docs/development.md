@@ -129,19 +129,21 @@ uv tool install --force speculate-cli
 speculate --version
 ```
 
-**Release notes format:**
+**Release notes format:** See
+@docs/general/agent-guidelines/release-notes-guidelines.md for the standard format.
 
 ```markdown
-## What's New
-
-- Brief description of changes
+## What's Changed
 
 ### Features
-- Feature 1
-- Feature 2
 
-### Full Changelog
-https://github.com/jlevy/speculate/compare/cli-v0.0.5...cli-v0.0.6
+- **Feature name**: Brief description
+
+### Fixes
+
+- Fixed specific issue
+
+**Full commit history**: https://github.com/jlevy/speculate/compare/cli-v0.0.5...cli-v0.0.6
 ```
 
 **Version format:**
