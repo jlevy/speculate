@@ -274,8 +274,8 @@ customized:
   # - "general/agent-rules/python-rules.md"  # Could also be individual files
 ```
 
-**Note**: There is no `mode` field in the config. The `customized` list *is* the state.
-Modes are CLI presets (see below), not persisted configuration.
+**Note**: There is no `preset` or `mode` field in the config. The `customized` list *is* the state.
+Presets are CLI shortcuts (see below), not persisted configuration.
 
 ### The Overlay Model
 
@@ -341,33 +341,33 @@ speculate diff project
 speculate diff --local-only
 ```
 
-### Modes as CLI Presets (Not Persisted)
+### Presets (CLI Shortcuts, Not Persisted)
 
-Modes are **CLI shortcuts** for common customization patterns. They are NOT persisted in
+Presets are **CLI shortcuts** for common customization patterns. They are NOT persisted in
 the config file—the `customized` list is the actual state.
 
-| Mode | What it does | Resulting `customized` list |
-|------|--------------|----------------------------|
+| Preset | What it does | Resulting `customized` list |
+|--------|--------------|----------------------------|
 | `mirror` | `speculate init` (nothing customized) | `[]` (empty) |
 | `project` | `speculate init && speculate customize project` | `["project"]` |
 | `full` | Customize everything | `["project", "general", "docs-overview.md", ...]` |
 
-**Why not persist mode?** Because the state evolves as you customize:
+**Why not persist the preset?** Because the state evolves as you customize:
 
 ```bash
-$ speculate init --mode project    # Starts with customized: ["project"]
+$ speculate init --preset project    # Starts with customized: ["project"]
 $ speculate customize general/agent-rules  # Now: ["project", "general/agent-rules"]
-# What "mode" is this? Neither project nor full—it's just your custom state.
+# What "preset" is this? Neither project nor full—it's just your custom state.
 ```
 
 The `customized` list is the source of truth. `speculate status` can infer and display
-the closest matching mode for convenience, but it's computed from the list, not stored.
+the closest matching preset for convenience, but it's computed from the list, not stored.
 
 ```bash
 $ speculate status
 Speculate v0.2.20
   Customized: project, general/agent-rules, docs-overview.md
-  Closest mode: project (with additional customizations)
+  Closest preset: project (with additional customizations)
   ...
 ```
 
@@ -585,7 +585,7 @@ speculate:
 docs_repo: "gh:jlevy/speculate"  # Customizable upstream
 
 # Paths that have been customized (no longer mirrored)
-# This list IS the state - modes are just CLI presets
+# This list IS the state - presets are just CLI shortcuts
 customized:
   - "project"
   # - "general/agent-rules"  # Example of additional customization
@@ -648,9 +648,10 @@ def _upgrade_f01_to_f02(settings_path: Path) -> None:
     # Add speculate section with format
     settings["speculate"] = {"format": "f0.2"}
 
-    # Existing installs default to 'full' mode (preserve behavior)
-    if "mode" not in settings:
-        settings["mode"] = "full"
+    # Existing installs were effectively 'full' - everything was customized/tracked
+    # Set customized list to match that state (preserve behavior)
+    if "customized" not in settings:
+        settings["customized"] = ["project", "general"]  # Full preset equivalent
 
     # Add default docs_repo
     if "docs_repo" not in settings:
@@ -701,9 +702,9 @@ def get_template_source(settings: dict) -> str:
 
 ```bash
 # New flags
-speculate init --mode mirror        # Zero footprint (default)
-speculate init --mode project       # Hybrid mode
-speculate init --mode full          # Everything tracked
+speculate init --preset mirror        # Zero footprint (default)
+speculate init --preset project       # Hybrid - project/ customized
+speculate init --preset full          # Everything customized (tracked)
 speculate init --docs-repo gh:myorg/fork  # Custom upstream
 ```
 
@@ -713,8 +714,8 @@ speculate init --docs-repo gh:myorg/fork  # Custom upstream
 # View current config
 speculate config
 
-# Change mode (restructures files)
-speculate config --mode project
+# Apply a preset (restructures files to match preset's customized list)
+speculate config --preset project
 
 # Change upstream repo
 speculate config --docs-repo gh:myorg/fork
@@ -722,14 +723,15 @@ speculate config --docs-repo gh:myorg/fork
 
 #### `speculate status`
 
-Enhanced output for mode awareness:
+Enhanced output with preset detection:
 
 ```
 Speculate Status
   Template version: v0.2.20
   Source: gh:jlevy/speculate
   Last install: 2026-01-16T12:34:56 (CLI 0.2.20)
-  Mode: mirror (docs/ gitignored)
+  Preset: mirror (docs/ gitignored)
+  Customized: (none)
   Format: f0.2
 
   docs/ exists (symlink → .speculate/mirror/docs)
@@ -869,12 +871,13 @@ def publish_from_mirror(mode: str, project_root: Path) -> None:
 - [ ] Implement symlink creation for non-customized paths
 - [ ] Update `install` to handle symlink-based docs
 
-### Phase 3: Mode Configuration
+### Phase 3: Presets and Configuration
 
-- [ ] Add `docs_repo`, `customized`, `filters` to settings schema (no `mode` - it's a CLI preset)
-- [ ] Add `--mode` and `--docs-repo` flags to `init` command
+- [ ] Add `docs_repo`, `customized`, `filters` to settings schema (no preset stored)
+- [ ] Add `--preset` and `--docs-repo` flags to `init` command
 - [ ] Create `config` command for viewing/changing settings
-- [ ] Add unit tests for mode configuration
+- [ ] Implement preset detection in `status` command (inferred from `customized` list)
+- [ ] Add unit tests for preset application and config
 
 ### Phase 4: Customize/Uncustomize Commands
 
@@ -917,11 +920,11 @@ def publish_from_mirror(mode: str, project_root: Path) -> None:
 
 ### Phase 8: Documentation & Testing
 
-- [ ] Update docs-overview.md with mode documentation
+- [ ] Update docs-overview.md with preset documentation
 - [ ] Add customization section for `docs_repo`
 - [ ] Document the overlay model and customize workflow
 - [ ] Add tags to existing docs files (python, typescript, etc.)
-- [ ] Integration tests for each mode
+- [ ] Integration tests for each preset
 - [ ] Migration testing from f0.1 to f0.2
 
 ---
@@ -955,12 +958,12 @@ def test_read_format_f02_explicit():
         settings_path = Path(tmp) / "settings.yml"
         settings_path.write_text(yaml.dump({
             "speculate": {"format": "f0.2"},
-            "mode": "mirror",
+            "customized": [],
         }))
         assert read_speculate_format(settings_path) == "f0.2"
 
 def test_upgrade_f01_to_f02():
-    """Upgrade adds format, mode, and docs_repo."""
+    """Upgrade adds format, customized list, and docs_repo."""
     with tempfile.TemporaryDirectory() as tmp:
         settings_path = Path(tmp) / "settings.yml"
         settings_path.write_text(yaml.dump({
@@ -973,7 +976,7 @@ def test_upgrade_f01_to_f02():
 
         settings = _load_yaml(settings_path)
         assert settings["speculate"]["format"] == "f0.2"
-        assert settings["mode"] == "full"  # Preserve existing behavior
+        assert settings["customized"] == ["project", "general"]  # Full preset equivalent
         assert settings["docs_repo"] == "gh:jlevy/speculate"
 
 def test_upgrade_preserves_existing_settings():
@@ -1111,7 +1114,7 @@ $ rm -rf .speculate docs CLAUDE.md AGENTS.md .cursor
 ### Workflow: Team adopts Speculate with minimal git noise
 
 ```bash
-$ speculate init --mode project
+$ speculate init --preset project
 
 # Only project structure committed
 $ git status
