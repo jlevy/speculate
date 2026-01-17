@@ -63,16 +63,46 @@ The key insight is to use `.speculate/mirror/` as a staging area:
 ├── copier-answers.yml         # Copier state
 └── mirror/                    # Always gitignored internally
     └── docs/
-        ├── general/           # Synced upstream content
+        ├── docs-overview.md       # Root-level synced (navigation hub)
+        ├── commit-conventions.md  # Root-level synced (conventions)
+        ├── development.npm.sample.md  # Sample template
+        ├── general/               # Synced upstream content
         │   ├── agent-rules/
         │   ├── agent-shortcuts/
         │   └── ...
-        └── project/           # Template structure (seeded once)
+        └── project/               # Template structure (seeded once)
             └── specs/
 ```
 
 **Key insight**: Copier always writes to `.speculate/mirror/docs/`, then a separate "publish"
 step exposes content to `docs/` based on mode (via symlinks or copies).
+
+### Root-Level Docs
+
+The `docs/` directory has three categories of content:
+
+| Category | Examples | Synced? | Customizable? |
+|----------|----------|---------|---------------|
+| **Root-level synced** | `docs-overview.md`, `commit-conventions.md` | Yes | Yes |
+| **Sample templates** | `development.npm.sample.md` | Yes | Rarely |
+| **User-created files** | `development.md` | No (created from sample) | User owns |
+| **general/** | Rules, shortcuts, guidelines | Yes | Yes |
+| **project/** | Specs, architecture | Template only | User owns |
+
+**Special handling for root-level files:**
+
+1. **`docs-overview.md`**: The navigation hub. Always exposed (symlinked) even in mirror mode
+   since agents need to find it. Can be customized if user wants to modify navigation.
+
+2. **`commit-conventions.md`**: General conventions. Treated like `general/` content—mirrored
+   by default, customizable on demand.
+
+3. **`*.sample.md` files**: Templates for user files. Exposed in mirror but typically not
+   customized—instead, users create their own file (e.g., `development.md` from
+   `development.npm.sample.md`).
+
+4. **`development.md`**: User-created file (from sample). Never in mirror, always local.
+   This is a user-owned file, not synced content.
 
 ### Mode Definitions
 
@@ -81,39 +111,56 @@ step exposes content to `docs/` based on mode (via symlinks or copies).
 ```
 .speculate/              # Entirely gitignored (or just not committed)
 ├── mirror/docs/         # All docs live here
+│   ├── docs-overview.md
+│   ├── commit-conventions.md
+│   ├── general/
+│   └── project/
 └── ...
 
-docs -> .speculate/mirror/docs   # Symlink (gitignored)
+docs -> .speculate/mirror/docs   # Symlink to entire mirror (gitignored)
+development.md                   # User file (local, not in mirror)
 CLAUDE.md                        # Generated (gitignored)
 AGENTS.md                        # Generated (gitignored)
 ```
 
-- Everything lives in `.speculate/mirror/`
+- Everything synced lives in `.speculate/mirror/`
 - Top-level `docs/` is a symlink to the mirror
+- User files like `development.md` live at real paths (not symlinked)
 - Add `.speculate/` to `.gitignore` for true zero footprint
 - Or just don't commit—user's choice
 
 #### Mode: `project` (Hybrid)
 
 ```
-.speculate/mirror/docs/general/    # Synced content (gitignored via .speculate/.gitignore)
+.speculate/mirror/docs/          # Full upstream content
+├── docs-overview.md
+├── commit-conventions.md
+├── general/
+└── project/                     # Template structure
 
 docs/
-├── general -> ../.speculate/mirror/docs/general  # Symlink (gitignored)
-└── project/             # Real directory, tracked in git
-    └── specs/           # User's project-specific docs
+├── docs-overview.md -> ../.speculate/mirror/docs/docs-overview.md  # Symlink
+├── commit-conventions.md -> ...                                     # Symlink
+├── general -> ../.speculate/mirror/docs/general                     # Symlink
+├── development.md               # User file (local)
+└── project/                     # Real directory, tracked in git
+    └── specs/
 ```
 
-- Synced content in mirror, exposed via symlink
+- Synced content (root-level + general/) in mirror, exposed via symlinks
 - Project-specific content (`docs/project/`) tracked normally
-- `.gitignore` contains: `docs/general` (the symlink)
+- User files (`development.md`) are local, not symlinked
+- `.gitignore` contains: `docs/general`, `docs/docs-overview.md`, `docs/commit-conventions.md`
 
 #### Mode: `full` (Everything Tracked)
 
 ```
 docs/                    # Everything tracked in git
-├── general/             # Synced
-└── project/             # User content
+├── docs-overview.md     # Synced (tracked)
+├── commit-conventions.md # Synced (tracked)
+├── development.md       # User file (tracked)
+├── general/             # Synced (tracked)
+└── project/             # User content (tracked)
 ```
 
 - Current behavior—no mirror directory
@@ -127,6 +174,9 @@ docs/                    # Everything tracked in git
 | `.speculate/` | gitignored | tracked | tracked |
 | `.speculate/mirror/` | n/a (inside .speculate) | gitignored | n/a |
 | `docs/` (symlink in mirror mode) | gitignored | n/a | n/a |
+| `docs/docs-overview.md` (symlink) | n/a | gitignored | tracked |
+| `docs/commit-conventions.md` (symlink) | n/a | gitignored | tracked |
+| `docs/development.md` (user file) | gitignored | tracked | tracked |
 | `docs/general/` (symlink in project mode) | n/a | gitignored | tracked |
 | `docs/project/` | gitignored | tracked | tracked |
 | `CLAUDE.md` | gitignored | tracked | tracked |
@@ -180,16 +230,27 @@ Before customize project:
 
 After customize project:
   docs/
-  ├── general -> ../.speculate/mirror/docs/general  (symlink)
+  ├── docs-overview.md -> ...                        (symlink, synced)
+  ├── commit-conventions.md -> ...                   (symlink, synced)
+  ├── development.md                                 (user file, local)
+  ├── general -> ../.speculate/mirror/docs/general   (symlink)
   └── project/                                       (real directory, local)
       └── specs/
 
 After customize general/agent-rules:
   docs/
+  ├── docs-overview.md -> ...                        (symlink)
   ├── general/
   │   ├── agent-rules/                              (real directory, local)
   │   ├── agent-shortcuts -> ...                    (symlink)
   │   └── ...                                       (other symlinks)
+  └── project/                                       (real directory)
+
+After customize docs-overview.md (customizing root-level doc):
+  docs/
+  ├── docs-overview.md                               (real file, local - customized!)
+  ├── commit-conventions.md -> ...                   (symlink, still mirrored)
+  ├── general -> ...                                 (symlink)
   └── project/                                       (real directory)
 ```
 
@@ -209,6 +270,7 @@ docs_repo: "gh:jlevy/speculate"
 customized:
   - "project"                    # Entire project/ directory
   - "general/agent-rules"        # Specific subdirectory
+  - "docs-overview.md"           # Root-level doc (customized navigation)
   # - "general/agent-rules/python-rules.md"  # Could also be individual files
 ```
 
@@ -1230,6 +1292,14 @@ tags:
 
 ### Proposed Tag Assignments
 
+#### Root-Level Docs (`docs/`)
+
+| File | Proposed Tags | Notes |
+|------|---------------|-------|
+| `docs-overview.md` | `general`, `navigation` | Entry point for agents |
+| `commit-conventions.md` | `general`, `git`, `workflow` | Commit guidelines |
+| `development.npm.sample.md` | `general`, `setup`, `npm` | Sample template |
+
 #### Agent Rules (`docs/general/agent-rules/`)
 
 | File | Proposed Tags |
@@ -1311,10 +1381,11 @@ tags:
 |----------|------|
 | **Languages** | `python`, `typescript`, `go`, `rust` |
 | **Frameworks** | `convex`, `react`, `fastapi`, `django` |
+| **Package Managers** | `npm`, `uv`, `pip` |
 | **Domains** | `testing`, `cli`, `git`, `ci-cd`, `security` |
 | **Workflow** | `workflow`, `specs`, `architecture`, `research`, `cleanup` |
 | **Testing Types** | `tdd`, `golden-testing`, `di` (dependency injection) |
-| **Special** | `general` (language-agnostic), `opinionated`, `beads`, `setup` |
+| **Special** | `general` (language-agnostic), `opinionated`, `beads`, `setup`, `navigation` |
 
 ### Implementation Tasks for Metadata
 
