@@ -291,6 +291,83 @@ pre-customized.
 
 ---
 
+## Copier Filtering Capabilities (Research)
+
+Understanding Copier's native filtering is critical to this design. This section documents
+what Copier can and cannot do, informing our architectural decisions.
+
+### What Copier Supports
+
+Copier provides **filename/path-based filtering only**:
+
+1. **`_exclude` patterns** (gitignore-style):
+   ```yaml
+   _exclude:
+     - "*.pyc"
+     - "__pycache__"
+     - "docs/internal/**"
+   ```
+
+2. **Conditional filenames via Jinja**:
+   ```
+   {% if use_python %}.python-version{% endif %}.jinja
+   {% if ci == 'github' %}.github{% endif %}/workflows/
+   ```
+
+3. **Conditional directories**:
+   ```
+   template/{% if feature_a %}feature_a_dir{% endif %}/
+   ```
+
+4. **User answers controlling generation**: Questions with `when` conditions can skip
+   entire template sections based on user input at copy time.
+
+### What Copier Does NOT Support
+
+- **Content-based filtering**: Cannot filter based on file contents (e.g., YAML frontmatter)
+- **Runtime tag filtering**: No way to say "only copy files tagged with 'python'"
+- **Dynamic include/exclude based on metadata**: Patterns must be known at template design time
+
+### Sources
+
+- [Copier Configuration Reference](https://copier.readthedocs.io/en/stable/configuring/)
+- [Copier Template Reference](https://copier.readthedocs.io/en/latest/reference/template/)
+- [Copier Negative Exclude Patterns Issue #1794](https://github.com/copier-org/copier/issues/1794)
+- [Multiple Templates Discussion #855](https://github.com/orgs/copier-org/discussions/855)
+
+### Architectural Decision: Post-Copier Filtering
+
+Given Copier's limitations, we have two options for implementing tag-based filtering:
+
+**Option A: Post-Copier Filtering (Chosen)**
+```
+Copier syncs everything → .speculate/mirror/
+Speculate filters by tags → docs/ (symlinks only matching files)
+```
+
+- Copier always syncs full upstream content to mirror
+- Speculate's overlay layer handles tag filtering via symlinks
+- Clean separation of concerns
+- Users can always `uncustomize` back to any file (mirror has everything)
+
+**Option B: Pre-Copier Filtering (Rejected)**
+```
+Speculate reads upstream tags → generates dynamic _exclude list
+Copier syncs only filtered content
+```
+
+- Would require fetching and parsing all upstream files before Copier runs
+- Tight coupling between Speculate and Copier internals
+- Lost content can't be recovered without re-running with different filters
+- More complex error handling
+
+**Decision**: Option A is cleaner and more robust. The mirror serves as a complete cache
+of upstream content, and filtering happens at the Speculate layer when creating symlinks
+or responding to `customize` commands. This also enables the `diff` command (compare local
+vs upstream) since the mirror always has the full upstream state.
+
+---
+
 ## Tag-Based Filtering
 
 ### Frontmatter Tags
