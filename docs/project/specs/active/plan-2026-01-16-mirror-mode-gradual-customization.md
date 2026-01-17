@@ -1,10 +1,11 @@
-# Plan Spec: Gitignore Mode Support for Speculate
+# Plan Spec: Mirror Mode and Gradual Doc Customization
 
 ## Purpose
 
-This spec defines how Speculate should support different gitignore modes, allowing users to
-run Speculate with varying levels of git footprint—from zero-footprint "mirror" mode to fully
-committed "full" mode.
+This spec defines how Speculate should support a mirror-based architecture with gradual
+customization, allowing users to run Speculate with varying levels of git footprint—from
+zero-footprint "mirror" mode to fully committed "full" mode—and incrementally adopt or
+customize docs as needed.
 
 ## Background
 
