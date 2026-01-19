@@ -7,6 +7,9 @@ _answers_file: .speculate/copier-answers.yml
 # The leading / anchors the pattern to the template root
 _exclude:
   # Exclude everything, then whitelist what we want
+  # Note: .claude/ is NOT included here - it's set up programmatically by
+  # `speculate install` via _setup_claude_hooks() which properly merges
+  # settings instead of overwriting user customizations.
   - "**"
   - "!/docs"
   - "!/docs/**"

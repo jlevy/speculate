@@ -10,9 +10,12 @@ from pytest import MonkeyPatch
 from speculate.cli.cli_commands import (
     SPECULATE_HEADER,
     SPECULATE_MARKER,
+    _copy_script_file,
     _ensure_speculate_header,
+    _merge_claude_settings,
     _remove_cursor_rules,
     _remove_speculate_header,
+    _setup_claude_hooks,
     _setup_cursor_rules,
     _update_speculate_settings,
     install,
@@ -598,3 +601,217 @@ class TestUninstallCommand:
         content = claude_md.read_text()
         assert SPECULATE_MARKER not in content
         assert "My Custom Instructions" in content
+
+
+class TestCopyScriptFile:
+    """Tests for _copy_script_file function."""
+
+    def test_creates_new_script(self, tmp_path: Path):
+        """Should create a new script file."""
+        script_file = tmp_path / "test.sh"
+        content = "#!/bin/bash\necho 'hello'"
+
+        result = _copy_script_file(script_file, content, force=False)
+
+        assert result == "created"
+        assert script_file.exists()
+        assert script_file.read_text() == content
+        assert os.access(script_file, os.X_OK)
+
+    def test_skips_identical_content(self, tmp_path: Path):
+        """Should skip if content is identical."""
+        script_file = tmp_path / "test.sh"
+        content = "#!/bin/bash\necho 'hello'"
+        script_file.write_text(content)
+        script_file.chmod(0o755)
+
+        result = _copy_script_file(script_file, content, force=False)
+
+        assert result is None
+
+    def test_skips_modified_without_force(self, tmp_path: Path):
+        """Should skip modified script without force flag."""
+        script_file = tmp_path / "test.sh"
+        script_file.write_text("#!/bin/bash\necho 'custom'")
+        script_file.chmod(0o755)
+        new_content = "#!/bin/bash\necho 'hello'"
+
+        result = _copy_script_file(script_file, new_content, force=False)
+
+        assert result is None
+        assert script_file.read_text() == "#!/bin/bash\necho 'custom'"
+
+    def test_overwrites_modified_with_force(self, tmp_path: Path):
+        """Should overwrite modified script with force flag."""
+        script_file = tmp_path / "test.sh"
+        script_file.write_text("#!/bin/bash\necho 'custom'")
+        script_file.chmod(0o755)
+        new_content = "#!/bin/bash\necho 'hello'"
+
+        result = _copy_script_file(script_file, new_content, force=True)
+
+        assert result == "updated (forced)"
+        assert script_file.read_text() == new_content
+
+
+class TestMergeClaudeSettings:
+    """Tests for _merge_claude_settings function."""
+
+    def test_creates_new_settings_file(self, tmp_path: Path):
+        """Should create settings.json if it doesn't exist."""
+        settings_file = tmp_path / "settings.json"
+        hooks_to_add = {
+            "SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "test.sh"}]}]
+        }
+
+        result = _merge_claude_settings(settings_file, hooks_to_add)
+
+        assert result == "created"
+        assert settings_file.exists()
+        import json
+
+        settings = json.loads(settings_file.read_text())
+        assert "SessionStart" in settings["hooks"]
+
+    def test_merges_into_existing_settings(self, tmp_path: Path):
+        """Should merge hooks into existing settings."""
+        import json
+
+        settings_file = tmp_path / "settings.json"
+        existing = {
+            "hooks": {
+                "PostToolUse": [
+                    {"matcher": "Bash", "hooks": [{"type": "command", "command": "other.sh"}]}
+                ]
+            }
+        }
+        settings_file.write_text(json.dumps(existing))
+
+        hooks_to_add = {
+            "SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "test.sh"}]}]
+        }
+
+        result = _merge_claude_settings(settings_file, hooks_to_add)
+
+        assert result == "updated hooks"
+        settings = json.loads(settings_file.read_text())
+        assert "SessionStart" in settings["hooks"]
+        assert "PostToolUse" in settings["hooks"]
+
+    def test_skips_duplicate_hooks(self, tmp_path: Path):
+        """Should skip if hook already exists."""
+        import json
+
+        settings_file = tmp_path / "settings.json"
+        existing = {
+            "hooks": {
+                "SessionStart": [
+                    {"matcher": "", "hooks": [{"type": "command", "command": "test.sh"}]}
+                ]
+            }
+        }
+        settings_file.write_text(json.dumps(existing))
+
+        hooks_to_add = {
+            "SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "test.sh"}]}]
+        }
+
+        result = _merge_claude_settings(settings_file, hooks_to_add)
+
+        assert result is None  # No changes needed
+
+    def test_handles_invalid_json(self, tmp_path: Path):
+        """Should handle invalid JSON gracefully."""
+        from typing import Any
+
+        settings_file = tmp_path / "settings.json"
+        settings_file.write_text("not valid json {")
+
+        hooks_to_add: dict[str, list[Any]] = {"SessionStart": [{"matcher": "", "hooks": []}]}
+
+        result = _merge_claude_settings(settings_file, hooks_to_add)
+
+        assert result is None
+
+
+class TestSetupClaudeHooks:
+    """Tests for _setup_claude_hooks function."""
+
+    def test_creates_claude_directory_structure(self, tmp_path: Path):
+        """Should create .claude/scripts/ directory."""
+        _setup_claude_hooks(tmp_path, force=False)
+
+        claude_dir = tmp_path / ".claude"
+        scripts_dir = claude_dir / "scripts"
+        assert claude_dir.exists()
+        assert scripts_dir.exists()
+
+    def test_creates_script_files(self, tmp_path: Path):
+        """Should create script files from resources."""
+        _setup_claude_hooks(tmp_path, force=False)
+
+        script_file = tmp_path / ".claude" / "scripts" / "ensure-gh-cli.sh"
+        assert script_file.exists()
+        assert os.access(script_file, os.X_OK)
+
+    def test_creates_settings_json(self, tmp_path: Path):
+        """Should create settings.json with hooks."""
+        import json
+
+        _setup_claude_hooks(tmp_path, force=False)
+
+        settings_file = tmp_path / ".claude" / "settings.json"
+        assert settings_file.exists()
+        settings = json.loads(settings_file.read_text())
+        assert "SessionStart" in settings["hooks"]
+
+    def test_idempotent_multiple_runs(self, tmp_path: Path):
+        """Should be idempotent - running twice produces same result."""
+        import json
+
+        _setup_claude_hooks(tmp_path, force=False)
+        first_settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+
+        _setup_claude_hooks(tmp_path, force=False)
+        second_settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+
+        assert first_settings == second_settings
+        # Only one SessionStart entry should exist
+        assert len(second_settings["hooks"]["SessionStart"]) == 1
+
+    def test_preserves_existing_hooks(self, tmp_path: Path):
+        """Should preserve existing hooks when adding ours."""
+        import json
+
+        # Create existing settings
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        settings_file = claude_dir / "settings.json"
+        existing = {
+            "hooks": {
+                "PostToolUse": [
+                    {"matcher": "Bash", "hooks": [{"type": "command", "command": "my-hook.sh"}]}
+                ]
+            }
+        }
+        settings_file.write_text(json.dumps(existing))
+
+        _setup_claude_hooks(tmp_path, force=False)
+
+        settings = json.loads(settings_file.read_text())
+        assert "PostToolUse" in settings["hooks"]
+        assert "SessionStart" in settings["hooks"]
+
+    def test_never_touches_settings_local_json(self, tmp_path: Path):
+        """Should never modify settings.local.json."""
+        import json
+
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        local_settings = claude_dir / "settings.local.json"
+        local_content = {"user": "config"}
+        local_settings.write_text(json.dumps(local_content))
+
+        _setup_claude_hooks(tmp_path, force=False)
+
+        assert json.loads(local_settings.read_text()) == local_content

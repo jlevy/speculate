@@ -98,6 +98,17 @@ pattern = "^cli-v(?P<base>\\d+\\.\\d+\\.\\d+)(-(?P<stage>[a-zA-Z]+)\\.?(?P<revis
 # The source location for the package.
 packages = ["src/speculate"]
 
+[tool.hatch.build.targets.wheel.force-include]
+# Include non-Python resource files
+"src/speculate/cli/resources" = "speculate/cli/resources"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/speculate/**/*.py",
+    "src/speculate/**/*.sh",
+    "src/speculate/**/*.json",
+]
+
 
 # ---- Settings ----
 

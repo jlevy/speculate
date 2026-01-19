@@ -7,10 +7,12 @@ Only copier is lazy-imported (it's a large package).
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 from datetime import UTC, datetime
 from importlib.metadata import version
+from importlib.resources import files
 from pathlib import Path
 from typing import Any, cast
 
@@ -194,6 +196,8 @@ def install(
       - CLAUDE.md (for Claude Code) — adds speculate header if missing
       - AGENTS.md (for Codex) — adds speculate header if missing
       - .cursor/rules/ (symlinks for Cursor)
+      - .claude/scripts/ensure-gh-cli.sh (GitHub CLI setup hook)
+      - .claude/settings.json (Claude Code hook configuration)
 
     If CLAUDE.md doesn't exist, creates it as a symlink to AGENTS.md.
     If CLAUDE.md already exists as a regular file, updates both files.
@@ -248,6 +252,9 @@ def install(
 
     # .cursor/rules/
     _setup_cursor_rules(cwd, include=include, exclude=exclude, force=force)
+
+    # .claude/ hooks
+    _setup_claude_hooks(cwd, force=force)
 
     rprint()
     print_success("Tool configs installed!")
@@ -599,6 +606,139 @@ def _remove_cursor_rules(project_root: Path) -> None:
 
     if removed_count > 0:
         print_success(f"Removed {removed_count} symlinks from .cursor/rules/")
+
+
+# Claude Code hooks - loaded from resources/claude-hooks/
+CLAUDE_HOOKS_RESOURCE = "speculate.cli.resources.claude-hooks"
+
+
+def _get_claude_hooks_resource() -> Any:
+    """Get the claude-hooks resource directory."""
+    return files(CLAUDE_HOOKS_RESOURCE)
+
+
+def _setup_claude_hooks(project_root: Path, force: bool = False) -> None:
+    """Set up .claude/ directory with hooks from resources.
+
+    Copies scripts from resources/claude-hooks/scripts/ to .claude/scripts/
+    and merges hook definitions from resources/claude-hooks/hooks.json into
+    .claude/settings.json.
+
+    Handles merging with existing settings.json (preserves user hooks).
+    Never touches .claude/settings.local.json (user's local overrides).
+    """
+    resource_dir = _get_claude_hooks_resource()
+    claude_dir = project_root / ".claude"
+    scripts_dir = claude_dir / "scripts"
+    settings_file = claude_dir / "settings.json"
+
+    # Create directories
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy all scripts from resources
+    scripts_resource = resource_dir.joinpath("scripts")
+    for script_file in scripts_resource.iterdir():
+        if script_file.name.endswith(".sh"):
+            dest_file = scripts_dir / script_file.name
+            script_content = script_file.read_text()
+            action = _copy_script_file(dest_file, script_content, force)
+            if action:
+                print_success(f".claude/scripts/{script_file.name}: {action}")
+
+    # Merge hooks.json into settings.json
+    hooks_resource = resource_dir.joinpath("hooks.json")
+    hooks_config = json.loads(hooks_resource.read_text())
+    action = _merge_claude_settings(settings_file, hooks_config)
+    if action:
+        print_success(f".claude/settings.json: {action}")
+
+
+def _copy_script_file(dest_file: Path, content: str, force: bool) -> str | None:
+    """Copy a script file to destination. Returns action description or None if no change."""
+    if dest_file.exists():
+        existing_content = dest_file.read_text()
+        if existing_content == content:
+            return None  # Already up to date
+        if not force:
+            print_warning(
+                f".claude/scripts/{dest_file.name} modified, skipping (use --force to overwrite)"
+            )
+            return None
+        # Force overwrite
+        with atomic_output_file(dest_file) as temp_path:
+            Path(temp_path).write_text(content)
+        dest_file.chmod(0o755)
+        return "updated (forced)"
+
+    # Create new script
+    with atomic_output_file(dest_file) as temp_path:
+        Path(temp_path).write_text(content)
+    dest_file.chmod(0o755)
+    return "created"
+
+
+def _merge_claude_settings(settings_file: Path, hooks_to_add: dict[str, list[Any]]) -> str | None:
+    """Merge hook definitions into settings.json.
+
+    Returns action description or None if no change needed.
+    """
+    settings: dict[str, Any]
+    if settings_file.exists():
+        try:
+            parsed = json.loads(settings_file.read_text())
+            settings = cast(dict[str, Any], parsed) if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            print_warning(".claude/settings.json has invalid JSON, skipping")
+            return None
+    else:
+        settings = {}
+
+    hooks: dict[str, list[Any]] = settings.setdefault("hooks", {})
+    changes_made = False
+
+    # Merge each hook type from hooks_to_add
+    # JSON parsing produces dynamic types, so we use cast for type narrowing
+    for hook_type, new_entries in hooks_to_add.items():
+        existing_entries: list[Any] = hooks.get(hook_type, [])
+
+        for new_entry in new_entries:
+            # Check if this entry already exists (by matching command in hooks)
+            already_exists = False
+            new_entry_dict = cast(dict[str, Any], new_entry) if isinstance(new_entry, dict) else {}
+            new_hooks_list: list[Any] = new_entry_dict.get("hooks", [])
+            new_commands: set[str] = {
+                cast(dict[str, Any], h).get("command", "")
+                for h in new_hooks_list
+                if isinstance(h, dict)
+            }
+
+            for existing_entry in existing_entries:
+                if isinstance(existing_entry, dict):
+                    existing_entry_dict = cast(dict[str, Any], existing_entry)
+                    existing_hooks_list: list[Any] = existing_entry_dict.get("hooks", [])
+                    existing_commands: set[str] = {
+                        cast(dict[str, Any], h).get("command", "")
+                        for h in existing_hooks_list
+                        if isinstance(h, dict)
+                    }
+                    if new_commands & existing_commands:
+                        already_exists = True
+                        break
+
+            if not already_exists:
+                existing_entries.append(new_entry)
+                changes_made = True
+
+        hooks[hook_type] = existing_entries
+
+    if not changes_made:
+        return None
+
+    was_new = not settings_file.exists()
+    with atomic_output_file(settings_file) as temp_path:
+        Path(temp_path).write_text(json.dumps(settings, indent=2) + "\n")
+
+    return "created" if was_new else "updated hooks"
 
 
 def uninstall(force: bool = False) -> None:
