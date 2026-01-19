@@ -15,6 +15,8 @@ _exclude:
   - "!/docs/**"
   - "!/.speculate"
   - "!/.speculate/**"
+  # Re-exclude settings.yml - it's managed by `speculate install`, not the template
+  - "/.speculate/settings.yml"
 
 _message_after_copy: |
   Speculate docs installed!
