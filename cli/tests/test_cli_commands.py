@@ -776,8 +776,8 @@ class TestSetupClaudeHooks:
         second_settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
 
         assert first_settings == second_settings
-        # Only one SessionStart entry should exist
-        assert len(second_settings["hooks"]["SessionStart"]) == 1
+        # Two SessionStart entries should exist (gh-cli and tbd)
+        assert len(second_settings["hooks"]["SessionStart"]) == 2
 
     def test_preserves_existing_hooks(self, tmp_path: Path):
         """Should preserve existing hooks when adding ours."""
