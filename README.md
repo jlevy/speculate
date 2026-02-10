@@ -1,12 +1,15 @@
 # Speculate
 
-👉 *Start with
-**[Lessons from 500K Lines of Spec-Driven Agent Coding](about/lessons_in_spec_coding.md)**
-for motivation on how this works.*
+> [!TIP]
+>
+> Start by reading my (late 2025) post
+> **[Lessons from 500K Lines of Spec-Driven Agent Coding](about/lessons_in_spec_coding.md)** 
+> for motivation on on why you should write specs.
 
-⚠️ *This is alpha quality!
-Although they’re imperfect and evolving, these workflows and prompts seem to be very
-powerful so I wanted to put them in shared place others can see too.*
+> [!WARNING]
+>
+> All this is evolving fast! Most of the rules, docs, and templates are now automatically included in
+> my newer tool, [**tbd**](https://github.com/jlevy/tbd). The content here is still good but tbd offers these docs and workflows plus issue tracking (beads) and is now (Feb 2026) how I do all development.
 
 **Speculate** is a **project structure for spec-driven agent coding**.
 
